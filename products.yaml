@@ -9,3 +9,5 @@ products:
     price: 16600
   Kecap:
     price: 4000
+  Person:
+    price: 10000

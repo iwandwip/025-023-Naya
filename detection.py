@@ -7,6 +7,10 @@ import time
 import threading
 import yaml
 import os
+import warnings
+import inquirer
+
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 
 class ProductDetector:
@@ -49,7 +53,7 @@ class ProductDetector:
                     "price": price,
                     "quantity": 1
                 }
-            print(f"Added {product_name} to cart. Current cart: {self.cart}")
+            print(f"Added {product_name} to cart")
             return True
         return False
 
@@ -58,6 +62,7 @@ class ProductDetector:
 
     def clear_cart(self):
         self.cart = {}
+        print("Shopping cart cleared.")
 
     def calculate_total(self):
         total = 0
@@ -88,13 +93,15 @@ class ProductDetector:
             confidence = row['confidence']
             x1, y1, x2, y2 = int(row['xmin']), int(row['ymin']), int(row['xmax']), int(row['ymax'])
 
-            if confidence > 0.5 and label in self.product_catalog:
-                detected_products.append(label)
-
-                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            if confidence > 0.5:
+                color = (0, 255, 0) if label in self.product_catalog else (0, 165, 255)
+                cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
 
                 text = f"{label}: {confidence:.2f}"
-                cv2.putText(frame, text, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                cv2.putText(frame, text, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+
+                if label in self.product_catalog:
+                    detected_products.append(label)
 
         return frame, detected_products
 
@@ -139,6 +146,9 @@ class ProductDetector:
                         self.add_to_cart(product)
                         cooldown_time[product] = current_time
 
+                cv2.imshow("Product Detection", self.frame)
+                cv2.waitKey(1)
+
                 time.sleep(0.05)
         finally:
             cap.release()
@@ -153,44 +163,87 @@ class ProductDetector:
         _, buffer = cv2.imencode('.jpg', self.frame)
         return buffer.tobytes()
 
+    def print_cart_summary(self):
+        cart_items = self.format_cart_for_display()
+        if not cart_items:
+            print("Shopping cart is empty.")
+            return
 
-if __name__ == "__main__":
+        print("\n--- Shopping Cart Summary ---")
+        for item in cart_items:
+            print(f"{item['name']} x{item['quantity']} - Rp {item['price']} each = Rp {item['subtotal']}")
+
+        print(f"Total: Rp {self.calculate_total()}")
+        print("----------------------------")
+
+
+def main():
     MODEL_PATH = "models/yolov5s.pt"
     CONFIG_PATH = "products.yaml"
 
     detector = ProductDetector(model_path=MODEL_PATH, config_path=CONFIG_PATH)
 
-    print("Starting product detection...")
-    detector.start_detection()
+    print("Self-Checkout System")
+    print("===================")
 
-    try:
-        while True:
-            frame = detector.get_current_frame()
+    running = True
+    while running:
+        questions = [
+            inquirer.List('action',
+                          message="Select an option:",
+                          choices=[
+                              '1. Start Scanning',
+                              '2. Clear Shopping Cart',
+                              '3. Exit'
+                          ],
+                          ),
+        ]
 
-            if frame is not None:
-                cv2.imshow("Product Detection", frame)
+        answers = inquirer.prompt(questions)
+        choice = answers['action'][0]
 
-                cart_items = detector.format_cart_for_display()
+        if choice == '1':
+            print("\nStarting product scanning...")
+            detector.start_detection()
 
-                total = detector.calculate_total()
-                print(f"\rTotal: Rp {total}", end="")
+            print("Scanning products. Press 'y' to stop scanning.")
+            stop_scanning = False
 
+            while not stop_scanning:
                 key = cv2.waitKey(1) & 0xFF
-                if key == ord('q'):
-                    break
-                elif key == ord('c'):
-                    detector.clear_cart()
-                    print("\nCart cleared!")
-    except KeyboardInterrupt:
-        print("\nDetection stopped by user.")
-    finally:
-        detector.stop_detection()
-        cv2.destroyAllWindows()
+                if key == ord('y'):
+                    stop_scanning = True
 
-        print("\n--- Shopping Cart Summary ---")
-        cart_items = detector.format_cart_for_display()
-        for item in cart_items:
-            print(f"{item['name']} x{item['quantity']} - Rp {item['price']} each = Rp {item['subtotal']}")
+                # Display current total
+                print(f"\rTotal: Rp {detector.calculate_total()}", end="")
+                time.sleep(0.1)
 
-        print(f"Total: Rp {detector.calculate_total()}")
-        print("----------------------------")
+            detector.stop_detection()
+            cv2.destroyAllWindows()
+
+            # Display final cart and total
+            detector.print_cart_summary()
+
+            continue_questions = [
+                inquirer.Confirm('continue',
+                                 message="Return to main menu?",
+                                 default=True
+                                 ),
+            ]
+
+            continue_answer = inquirer.prompt(continue_questions)
+            if not continue_answer['continue']:
+                running = False
+
+        elif choice == '2':
+            detector.clear_cart()
+
+        elif choice == '3':
+            print("Exiting...")
+            running = False
+
+    cv2.destroyAllWindows()
+
+
+if __name__ == "__main__":
+    main()

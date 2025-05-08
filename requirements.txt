@@ -52,3 +52,4 @@ setuptools>=70.0.0 # Snyk vulnerability fix
 flask
 firebase-admin
 flask-socketio
+inquirer
