@@ -5,6 +5,8 @@ import threading
 import time
 import detection
 import numpy as np
+import yaml
+import os
 
 
 class Camera:
@@ -55,9 +57,67 @@ class Camera:
         return (self.frame_width, self.frame_height)
 
 
+class ProductManager:
+    def __init__(self, config_path="products.yaml"):
+        self.config_path = config_path
+        self.products = {}
+        self.load_products()
+
+    def load_products(self):
+        if os.path.exists(self.config_path):
+            with open(self.config_path, 'r') as file:
+                config = yaml.safe_load(file)
+                if config and 'products' in config:
+                    for product, details in config['products'].items():
+                        self.products[product.lower()] = details['price']
+                    print(f"Loaded {len(self.products)} products from config")
+                else:
+                    self.products = {}
+                    print("No products found in config, using empty catalog")
+        else:
+            self.products = {}
+            print(f"Config file {self.config_path} not found, using empty catalog")
+            self.save_products()
+
+    def save_products(self):
+        config = {"products": {}}
+        for product, price in self.products.items():
+            config["products"][product] = {"price": price}
+
+        with open(self.config_path, 'w') as file:
+            yaml.dump(config, file, default_flow_style=False)
+        print(f"Saved {len(self.products)} products to config")
+
+    def get_products(self):
+        return self.products
+
+    def add_product(self, name, price):
+        name_lower = name.lower()
+        self.products[name_lower] = price
+        self.save_products()
+        return {"name": name_lower, "price": price}
+
+    def update_product(self, name, price):
+        name_lower = name.lower()
+        if name_lower in self.products:
+            self.products[name_lower] = price
+            self.save_products()
+            return {"name": name_lower, "price": price}
+        return None
+
+    def delete_product(self, name):
+        name_lower = name.lower()
+        if name_lower in self.products:
+            del self.products[name_lower]
+            self.save_products()
+            return {"name": name_lower}
+        return None
+
+
 class DetectorManager:
-    def __init__(self, model_path, config_path):
-        self.detector = detection.ProductDetector(model_path=model_path, config_path=config_path)
+    def __init__(self, model_path, product_manager):
+        self.detector = detection.ProductDetector(model_path=model_path, config_path=product_manager.config_path)
+        self.product_manager = product_manager
         self.is_scanning = False
         self.lock = threading.Lock()
         self.zone_start_percent = 70
@@ -85,6 +145,7 @@ class DetectorManager:
         counting_zone_width = int(frame_width * self.zone_width_percent / 100)
 
         if self.is_scanning:
+            self.detector.product_catalog = self.product_manager.get_products()
             processed_frame, detected_objects = self.detector.detect_objects(frame)
 
             current_time = time.time()
@@ -147,7 +208,8 @@ class SelfCheckoutApp:
         self.app = Flask(__name__)
         self.socketio = SocketIO(self.app)
         self.camera = Camera()
-        self.detector_manager = DetectorManager(model_path="models/yolov5s.pt", config_path="products.yaml")
+        self.product_manager = ProductManager(config_path="products.yaml")
+        self.detector_manager = DetectorManager(model_path="models/yolov5s.pt", product_manager=self.product_manager)
         self.frame_lock = threading.Lock()
         self.output_frame = None
         self.host = host
@@ -206,6 +268,32 @@ class SelfCheckoutApp:
                 'total': 0
             })
             print("Cart cleared")
+
+        @self.socketio.on('get_products')
+        def handle_get_products():
+            products = self.product_manager.get_products()
+            self.socketio.emit('products_list', products)
+            print(f"Sent {len(products)} products to client")
+
+        @self.socketio.on('add_product')
+        def handle_add_product(data):
+            result = self.product_manager.add_product(data['name'], data['price'])
+            self.socketio.emit('product_added', result)
+            print(f"Added product: {result['name']} - Rp {result['price']}")
+
+        @self.socketio.on('update_product')
+        def handle_update_product(data):
+            result = self.product_manager.update_product(data['name'], data['price'])
+            if result:
+                self.socketio.emit('product_updated', result)
+                print(f"Updated product: {result['name']} - Rp {result['price']}")
+
+        @self.socketio.on('delete_product')
+        def handle_delete_product(data):
+            result = self.product_manager.delete_product(data['name'])
+            if result:
+                self.socketio.emit('product_deleted', result)
+                print(f"Deleted product: {result['name']}")
 
     def processing_loop(self):
         try:

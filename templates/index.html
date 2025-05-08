@@ -28,6 +28,24 @@
       header {
         text-align: center;
         margin-bottom: 30px;
+        position: relative;
+      }
+
+      .admin-button {
+        position: absolute;
+        right: 0;
+        top: 10px;
+        background-color: #34495e;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 0.9rem;
+      }
+
+      .admin-button:hover {
+        background-color: #2c3e50;
       }
 
       h1 {
@@ -208,6 +226,10 @@
         animation: modalFadeIn 0.3s;
       }
 
+      .product-modal-content {
+        max-width: 800px;
+      }
+
       @keyframes modalFadeIn {
         from {
           opacity: 0;
@@ -267,6 +289,94 @@
         background-color: #219653;
       }
 
+      .product-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+      }
+
+      .product-table th,
+      .product-table td {
+        padding: 12px 15px;
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+      }
+
+      .product-table th {
+        background-color: #f2f2f2;
+        font-weight: 600;
+        color: #2c3e50;
+      }
+
+      .product-table tr:hover {
+        background-color: #f5f5f5;
+      }
+
+      .btn-edit {
+        background-color: #3498db;
+        padding: 6px 12px;
+        font-size: 0.9rem;
+      }
+
+      .btn-delete {
+        background-color: #e74c3c;
+        padding: 6px 12px;
+        font-size: 0.9rem;
+      }
+
+      .add-product-form {
+        margin-top: 20px;
+        padding: 20px;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+      }
+
+      .form-group {
+        margin-bottom: 15px;
+      }
+
+      .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 600;
+      }
+
+      .form-group input {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 1rem;
+      }
+
+      .btn-add-product {
+        background-color: #27ae60;
+        margin-top: 10px;
+      }
+
+      .tabs {
+        display: flex;
+        border-bottom: 1px solid #ddd;
+        margin-bottom: 20px;
+      }
+
+      .tab {
+        padding: 10px 15px;
+        cursor: pointer;
+        font-weight: 600;
+        color: #7f8c8d;
+        border-bottom: 3px solid transparent;
+      }
+
+      .tab.active {
+        color: #3498db;
+        border-bottom: 3px solid #3498db;
+      }
+
+      .edit-form {
+        margin-top: 20px;
+      }
+
       @keyframes spin {
         0% {
           transform: rotate(0deg);
@@ -284,6 +394,7 @@
         <p>
           Place items on the conveyor belt to detect and add them to your cart
         </p>
+        <button id="adminButton" class="admin-button">Manage Products</button>
       </header>
 
       <div class="main-content">
@@ -362,6 +473,73 @@
       </div>
     </div>
 
+    <div id="productModal" class="modal">
+      <div class="modal-content product-modal-content">
+        <span class="close-modal product-close">&times;</span>
+        <h2 style="text-align: center; margin-top: 0">Product Management</h2>
+
+        <div class="tabs">
+          <div class="tab active" data-tab="products">Products List</div>
+          <div class="tab" data-tab="add">Add New Product</div>
+        </div>
+
+        <div id="productsTab">
+          <div id="productsList">
+            <table class="product-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Price (Rp)</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="productsTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="addProductTab" style="display: none">
+          <div class="add-product-form">
+            <div class="form-group">
+              <label for="productName">Product Name</label>
+              <input
+                type="text"
+                id="productName"
+                placeholder="Enter product name"
+              />
+            </div>
+            <div class="form-group">
+              <label for="productPrice">Price (Rp)</label>
+              <input
+                type="number"
+                id="productPrice"
+                placeholder="Enter price"
+              />
+            </div>
+            <button id="addProductBtn" class="btn btn-add-product">
+              Add Product
+            </button>
+          </div>
+        </div>
+
+        <div id="editProductForm" class="edit-form" style="display: none">
+          <h3>Edit Product</h3>
+          <div class="form-group">
+            <label for="editProductName">Product Name</label>
+            <input type="text" id="editProductName" readonly />
+          </div>
+          <div class="form-group">
+            <label for="editProductPrice">Price (Rp)</label>
+            <input type="number" id="editProductPrice" />
+          </div>
+          <button id="saveEditBtn" class="btn btn-add-product">
+            Save Changes
+          </button>
+          <button id="cancelEditBtn" class="btn">Cancel</button>
+        </div>
+      </div>
+    </div>
+
     <script>
       const socket = io();
       const startBtn = document.getElementById("startBtn");
@@ -380,7 +558,26 @@
       const finishBtn = document.getElementById("finishBtn");
       const modalTotal = document.getElementById("modalTotal");
 
+      const adminButton = document.getElementById("adminButton");
+      const productModal = document.getElementById("productModal");
+      const productClose = document.querySelector(".product-close");
+      const tabs = document.querySelectorAll(".tab");
+      const productsTab = document.getElementById("productsTab");
+      const addProductTab = document.getElementById("addProductTab");
+      const productsTableBody = document.getElementById("productsTableBody");
+      const addProductBtn = document.getElementById("addProductBtn");
+      const productName = document.getElementById("productName");
+      const productPrice = document.getElementById("productPrice");
+
+      const editProductForm = document.getElementById("editProductForm");
+      const editProductName = document.getElementById("editProductName");
+      const editProductPrice = document.getElementById("editProductPrice");
+      const saveEditBtn = document.getElementById("saveEditBtn");
+      const cancelEditBtn = document.getElementById("cancelEditBtn");
+
       let currentTotal = 0;
+      let products = {};
+      let currentEditingProduct = null;
 
       startBtn.addEventListener("click", function () {
         socket.emit("start_scanning", {
@@ -478,6 +675,9 @@
         if (event.target === checkoutModal) {
           checkoutModal.style.display = "none";
         }
+        if (event.target === productModal) {
+          productModal.style.display = "none";
+        }
       });
 
       function openCheckoutModal(total) {
@@ -499,6 +699,170 @@
 
         checkoutModal.style.display = "block";
       }
+
+      adminButton.addEventListener("click", function () {
+        socket.emit("get_products");
+        productModal.style.display = "block";
+      });
+
+      productClose.addEventListener("click", function () {
+        productModal.style.display = "none";
+        hideEditForm();
+      });
+
+      tabs.forEach((tab) => {
+        tab.addEventListener("click", function () {
+          tabs.forEach((t) => t.classList.remove("active"));
+          this.classList.add("active");
+
+          const tabName = this.getAttribute("data-tab");
+          if (tabName === "products") {
+            productsTab.style.display = "block";
+            addProductTab.style.display = "none";
+            hideEditForm();
+          } else if (tabName === "add") {
+            productsTab.style.display = "none";
+            addProductTab.style.display = "block";
+            hideEditForm();
+          }
+        });
+      });
+
+      addProductBtn.addEventListener("click", function () {
+        const name = productName.value.trim();
+        const price = parseInt(productPrice.value);
+
+        if (!name || !price || price <= 0) {
+          alert("Please enter valid product name and price");
+          return;
+        }
+
+        socket.emit("add_product", {
+          name: name,
+          price: price,
+        });
+
+        productName.value = "";
+        productPrice.value = "";
+      });
+
+      saveEditBtn.addEventListener("click", function () {
+        const price = parseInt(editProductPrice.value);
+
+        if (!price || price <= 0) {
+          alert("Please enter a valid price");
+          return;
+        }
+
+        socket.emit("update_product", {
+          name: currentEditingProduct,
+          price: price,
+        });
+
+        hideEditForm();
+      });
+
+      cancelEditBtn.addEventListener("click", function () {
+        hideEditForm();
+      });
+
+      function showEditForm(productName, productPrice) {
+        currentEditingProduct = productName;
+        editProductName.value = productName;
+        editProductPrice.value = productPrice;
+
+        productsTab.style.display = "none";
+        addProductTab.style.display = "none";
+        editProductForm.style.display = "block";
+      }
+
+      function hideEditForm() {
+        editProductForm.style.display = "none";
+        if (
+          document.querySelector(".tab.active").getAttribute("data-tab") ===
+          "products"
+        ) {
+          productsTab.style.display = "block";
+        } else {
+          addProductTab.style.display = "block";
+        }
+        currentEditingProduct = null;
+      }
+
+      function renderProductsTable() {
+        productsTableBody.innerHTML = "";
+
+        if (Object.keys(products).length === 0) {
+          const emptyRow = document.createElement("tr");
+          const emptyCell = document.createElement("td");
+          emptyCell.colSpan = 3;
+          emptyCell.textContent = "No products found";
+          emptyCell.style.textAlign = "center";
+          emptyRow.appendChild(emptyCell);
+          productsTableBody.appendChild(emptyRow);
+          return;
+        }
+
+        for (const [name, price] of Object.entries(products)) {
+          const row = document.createElement("tr");
+
+          const nameCell = document.createElement("td");
+          nameCell.textContent = name;
+
+          const priceCell = document.createElement("td");
+          priceCell.textContent = `Rp ${price.toLocaleString()}`;
+
+          const actionsCell = document.createElement("td");
+
+          const editBtn = document.createElement("button");
+          editBtn.className = "btn btn-edit";
+          editBtn.textContent = "Edit";
+          editBtn.addEventListener("click", function () {
+            showEditForm(name, price);
+          });
+
+          const deleteBtn = document.createElement("button");
+          deleteBtn.className = "btn btn-delete";
+          deleteBtn.textContent = "Delete";
+          deleteBtn.addEventListener("click", function () {
+            if (confirm(`Are you sure you want to delete ${name}?`)) {
+              socket.emit("delete_product", { name: name });
+            }
+          });
+
+          actionsCell.appendChild(editBtn);
+          actionsCell.appendChild(deleteBtn);
+
+          row.appendChild(nameCell);
+          row.appendChild(priceCell);
+          row.appendChild(actionsCell);
+
+          productsTableBody.appendChild(row);
+        }
+      }
+
+      socket.on("products_list", function (data) {
+        products = data;
+        renderProductsTable();
+      });
+
+      socket.on("product_added", function (data) {
+        products[data.name] = data.price;
+        renderProductsTable();
+
+        const productsTab = document.querySelector('.tab[data-tab="products"]');
+        productsTab.click();
+      });
+
+      socket.on("product_updated", function (data) {
+        products[data.name] = data.price;
+        renderProductsTable();
+      });
+
+      socket.on("product_deleted", function (data) {
+        delete products[data.name];
+        renderProductsTable();
+      });
 
       socket.on("connect", function () {
         console.log("Connected to server");

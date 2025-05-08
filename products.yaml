@@ -1,19 +1,13 @@
 products:
-  Indomie:
-    price: 3200
-  Sabun:
+  cell phone:
+    price: 10000
+  dog:
+    price: 20000
+  kecap:
     price: 4000
-  Indomilk:
-    price: 5250
-  Keju:
-    price: 16600
-  Kecap:
-    price: 4000
-  Person:
+  laptop:
     price: 10000
-  Laptop:
+  person:
     price: 10000
-  Tv:
-    price: 10000
-  Cell Phone:
+  tv:
     price: 10000
