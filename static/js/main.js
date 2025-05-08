@@ -32,9 +32,28 @@ const editProductPrice = document.getElementById("editProductPrice");
 const saveEditBtn = document.getElementById("saveEditBtn");
 const cancelEditBtn = document.getElementById("cancelEditBtn");
 
+const historyButton = document.getElementById("historyButton");
+const historyModal = document.getElementById("historyModal");
+const historyClose = document.querySelector(".history-close");
+const filterHistoryBtn = document.getElementById("filterHistoryBtn");
+const resetHistoryBtn = document.getElementById("resetHistoryBtn");
+const startDate = document.getElementById("startDate");
+const endDate = document.getElementById("endDate");
+const totalTransactions = document.getElementById("totalTransactions");
+const totalRevenue = document.getElementById("totalRevenue");
+const transactionsTableBody = document.getElementById("transactionsTableBody");
+
+const transactionDetailModal = document.getElementById("transactionDetailModal");
+const detailClose = document.querySelector(".detail-close");
+const detailTransactionId = document.getElementById("detailTransactionId");
+const detailTransactionDate = document.getElementById("detailTransactionDate");
+const detailItemsTableBody = document.getElementById("detailItemsTableBody");
+const detailTotal = document.getElementById("detailTotal");
+
 let currentTotal = 0;
 let products = {};
 let currentEditingProduct = null;
+let transactions = [];
 
 startBtn.addEventListener("click", function () {
   socket.emit("start_scanning", {
@@ -123,7 +142,7 @@ closeModal.addEventListener("click", function() {
 
 finishBtn.addEventListener("click", function() {
   checkoutModal.style.display = "none";
-  socket.emit("clear_cart");
+  socket.emit("checkout_complete");
   updateCart({}, 0);
   statusText.innerText = "Payment completed. Ready to scan";
 });
@@ -134,6 +153,12 @@ window.addEventListener("click", function(event) {
   }
   if (event.target === productModal) {
     productModal.style.display = "none";
+  }
+  if (event.target === historyModal) {
+    historyModal.style.display = "none";
+  }
+  if (event.target === transactionDetailModal) {
+    transactionDetailModal.style.display = "none";
   }
 });
 
@@ -295,6 +320,141 @@ function renderProductsTable() {
   }
 }
 
+historyButton.addEventListener("click", function() {
+  socket.emit("get_transaction_history");
+  historyModal.style.display = "block";
+});
+
+historyClose.addEventListener("click", function() {
+  historyModal.style.display = "none";
+});
+
+filterHistoryBtn.addEventListener("click", function() {
+  const start = startDate.value;
+  const end = endDate.value;
+  
+  if (!start || !end) {
+    alert("Please select both start and end dates");
+    return;
+  }
+  
+  socket.emit("get_transactions_by_date", {
+    start_date: start,
+    end_date: end
+  });
+});
+
+resetHistoryBtn.addEventListener("click", function() {
+  startDate.value = "";
+  endDate.value = "";
+  socket.emit("get_transaction_history");
+});
+
+function renderTransactionsTable() {
+  transactionsTableBody.innerHTML = "";
+  
+  if (transactions.length === 0) {
+    const emptyRow = document.createElement("tr");
+    const emptyCell = document.createElement("td");
+    emptyCell.colSpan = 4;
+    emptyCell.textContent = "No transactions found";
+    emptyCell.style.textAlign = "center";
+    emptyRow.appendChild(emptyCell);
+    transactionsTableBody.appendChild(emptyRow);
+    
+    totalTransactions.textContent = "0";
+    totalRevenue.textContent = "Rp 0";
+    return;
+  }
+  
+  let totalRev = 0;
+  
+  transactions.forEach(transaction => {
+    const row = document.createElement("tr");
+    
+    const dateCell = document.createElement("td");
+    dateCell.textContent = transaction.formatted_date || "N/A";
+    
+    const itemsCell = document.createElement("td");
+    const itemsCount = transaction.items ? transaction.items.length : 0;
+    itemsCell.textContent = `${itemsCount} item${itemsCount !== 1 ? 's' : ''}`;
+    
+    const totalCell = document.createElement("td");
+    totalCell.textContent = `Rp ${transaction.total.toLocaleString()}`;
+    
+    const actionsCell = document.createElement("td");
+    
+    const viewBtn = document.createElement("button");
+    viewBtn.className = "btn btn-view";
+    viewBtn.textContent = "View";
+    viewBtn.addEventListener("click", function() {
+      showTransactionDetail(transaction);
+    });
+    
+    actionsCell.appendChild(viewBtn);
+    
+    row.appendChild(dateCell);
+    row.appendChild(itemsCell);
+    row.appendChild(totalCell);
+    row.appendChild(actionsCell);
+    
+    transactionsTableBody.appendChild(row);
+    
+    totalRev += transaction.total;
+  });
+  
+  totalTransactions.textContent = transactions.length;
+  totalRevenue.textContent = `Rp ${totalRev.toLocaleString()}`;
+}
+
+function showTransactionDetail(transaction) {
+  detailTransactionId.textContent = transaction.id;
+  detailTransactionDate.textContent = transaction.formatted_date || "N/A";
+  
+  detailItemsTableBody.innerHTML = "";
+  
+  if (!transaction.items || transaction.items.length === 0) {
+    const emptyRow = document.createElement("tr");
+    const emptyCell = document.createElement("td");
+    emptyCell.colSpan = 4;
+    emptyCell.textContent = "No items in this transaction";
+    emptyCell.style.textAlign = "center";
+    emptyRow.appendChild(emptyCell);
+    detailItemsTableBody.appendChild(emptyRow);
+  } else {
+    transaction.items.forEach(item => {
+      const row = document.createElement("tr");
+      
+      const nameCell = document.createElement("td");
+      nameCell.textContent = item.name;
+      
+      const priceCell = document.createElement("td");
+      priceCell.textContent = item.price.toLocaleString();
+      
+      const quantityCell = document.createElement("td");
+      quantityCell.textContent = item.quantity;
+      
+      const subtotalCell = document.createElement("td");
+      subtotalCell.textContent = item.subtotal.toLocaleString();
+      
+      row.appendChild(nameCell);
+      row.appendChild(priceCell);
+      row.appendChild(quantityCell);
+      row.appendChild(subtotalCell);
+      
+      detailItemsTableBody.appendChild(row);
+    });
+  }
+  
+  detailTotal.textContent = `Total: Rp ${transaction.total.toLocaleString()}`;
+  
+  transactionDetailModal.style.display = "block";
+}
+
+detailClose.addEventListener("click", function() {
+  transactionDetailModal.style.display = "none";
+});
+
 socket.on("products_list", function(data) {
   products = data;
   renderProductsTable();
@@ -318,10 +478,35 @@ socket.on("product_deleted", function(data) {
   renderProductsTable();
 });
 
+socket.on("transaction_history", function(data) {
+  transactions = data;
+  renderTransactionsTable();
+});
+
 socket.on("connect", function() {
   console.log("Connected to server");
 });
 
 socket.on("disconnect", function() {
   console.log("Disconnected from server");
+});
+
+function setDefaultDates() {
+  const today = new Date();
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(today.getDate() - 30);
+  
+  const formatDate = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+  
+  startDate.value = formatDate(thirtyDaysAgo);
+  endDate.value = formatDate(today);
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+  setDefaultDates();
 });

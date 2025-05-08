@@ -4,17 +4,35 @@ import threading
 import time
 import numpy as np
 import os
+import cv2
+import datetime
+import json
 
 from CameraHandler import Camera
 from DetectorManager import DetectorManager
 from ProductManager import ProductManager
+from FirestoreManager import FirestoreManager
+
+
+def format_transaction_for_json(transaction):
+    formatted_transaction = transaction.copy()
+
+    if 'timestamp' in formatted_transaction and formatted_transaction['timestamp']:
+        timestamp = formatted_transaction['timestamp']
+        if hasattr(timestamp, 'isoformat'):
+            formatted_transaction['timestamp'] = timestamp.isoformat()
+        elif hasattr(timestamp, 'timestamp'):
+            formatted_transaction['timestamp'] = timestamp.timestamp()
+
+    return formatted_transaction
 
 
 class SelfCheckoutApp:
     def __init__(self, host='0.0.0.0', port=5000):
         self.app = Flask(__name__)
         self.socketio = SocketIO(self.app)
-        self.product_manager = ProductManager(config_path="products.yaml")
+        self.firestore_manager = FirestoreManager()
+        self.product_manager = ProductManager(self.firestore_manager)
         self.camera = Camera()
         self.detector_manager = DetectorManager(model_path="models/yolov5s.pt", product_manager=self.product_manager)
         self.frame_lock = threading.Lock()
@@ -76,6 +94,23 @@ class SelfCheckoutApp:
             })
             print("Cart cleared")
 
+        @self.socketio.on('checkout_complete')
+        def handle_checkout_complete(data=None):
+            cart = self.detector_manager.get_cart()
+            total = self.detector_manager.calculate_total()
+
+            if self.firestore_manager.is_connected():
+                transaction = self.firestore_manager.save_transaction(cart, total)
+                if transaction:
+                    print(f"Transaction saved to Firestore with ID: {transaction['id']}")
+
+            self.detector_manager.clear_cart()
+            self.socketio.emit('cart_update', {
+                'cart': {},
+                'total': 0
+            })
+            print("Checkout completed and cart cleared")
+
         @self.socketio.on('get_products')
         def handle_get_products():
             products = self.product_manager.get_products()
@@ -101,6 +136,61 @@ class SelfCheckoutApp:
             if result:
                 self.socketio.emit('product_deleted', result)
                 print(f"Deleted product: {result['name']}")
+
+        @self.socketio.on('get_transaction_history')
+        def handle_get_transaction_history(data=None):
+            if not self.firestore_manager.is_connected():
+                self.socketio.emit('transaction_history', [])
+                return
+
+            limit = data.get('limit', 20) if data else 20
+            transactions = self.firestore_manager.get_transactions(limit=limit)
+
+            formatted_transactions = []
+            for transaction in transactions:
+                formatted_transaction = format_transaction_for_json(transaction)
+
+                if formatted_transaction.get('timestamp'):
+                    timestamp = transaction.get('timestamp')
+                    if hasattr(timestamp, 'strftime'):
+                        formatted_transaction['formatted_date'] = timestamp.strftime('%Y-%m-%d %H:%M:%S')
+                    else:
+                        formatted_transaction['formatted_date'] = str(timestamp)
+
+                formatted_transactions.append(formatted_transaction)
+
+            self.socketio.emit('transaction_history', formatted_transactions)
+            print(f"Sent {len(formatted_transactions)} transactions to client")
+
+        @self.socketio.on('get_transactions_by_date')
+        def handle_get_transactions_by_date(data):
+            if not self.firestore_manager.is_connected():
+                self.socketio.emit('transaction_history', [])
+                return
+
+            start_date = data.get('start_date')
+            end_date = data.get('end_date')
+
+            if not start_date or not end_date:
+                transactions = self.firestore_manager.get_transactions()
+            else:
+                transactions = self.firestore_manager.get_transactions_by_date_range(start_date, end_date)
+
+            formatted_transactions = []
+            for transaction in transactions:
+                formatted_transaction = format_transaction_for_json(transaction)
+
+                if formatted_transaction.get('timestamp'):
+                    timestamp = transaction.get('timestamp')
+                    if hasattr(timestamp, 'strftime'):
+                        formatted_transaction['formatted_date'] = timestamp.strftime('%Y-%m-%d %H:%M:%S')
+                    else:
+                        formatted_transaction['formatted_date'] = str(timestamp)
+
+                formatted_transactions.append(formatted_transaction)
+
+            self.socketio.emit('transaction_history', formatted_transactions)
+            print(f"Sent {len(formatted_transactions)} transactions by date range to client")
 
     def processing_loop(self):
         try:
@@ -159,7 +249,6 @@ class SelfCheckoutApp:
             self.camera.stop()
 
     def generate_frames(self):
-        import cv2
         blank_frame = np.zeros((480, 640, 3), dtype=np.uint8)
         text = "Press 'Start Scanning' to begin"
         font = cv2.FONT_HERSHEY_SIMPLEX
@@ -188,6 +277,5 @@ class SelfCheckoutApp:
 
 
 if __name__ == '__main__':
-    import cv2
     app = SelfCheckoutApp()
     app.run()

@@ -1,13 +1,23 @@
 products:
-  cell phone:
-    price: 10000
-  dog:
-    price: 20000
-  kecap:
-    price: 4000
+  hard drive:
+    price: 1500
+  headphones:
+    price: 1000
+  keyboard:
+    price: 500
   laptop:
     price: 10000
+  monitor:
+    price: 3000
+  mouse:
+    price: 300
   person:
     price: 10000
-  tv:
-    price: 10000
+  smartphone:
+    price: 5000
+  tablet:
+    price: 4000
+  usb drive:
+    price: 200
+  webcam:
+    price: 800

@@ -22,7 +22,12 @@
         <p>
           Place items on the conveyor belt to detect and add them to your cart
         </p>
-        <button id="adminButton" class="admin-button">Manage Products</button>
+        <div class="header-buttons">
+          <button id="historyButton" class="admin-button history-button">
+            Transaction History
+          </button>
+          <button id="adminButton" class="admin-button">Manage Products</button>
+        </div>
       </header>
 
       <div class="main-content">
@@ -165,6 +170,85 @@
           </button>
           <button id="cancelEditBtn" class="btn">Cancel</button>
         </div>
+      </div>
+    </div>
+
+    <div id="historyModal" class="modal">
+      <div class="modal-content history-modal-content">
+        <span class="close-modal history-close">&times;</span>
+        <h2 style="text-align: center; margin-top: 0">Transaction History</h2>
+
+        <div class="history-filters">
+          <div class="form-group">
+            <label for="startDate">Start Date</label>
+            <input type="date" id="startDate" />
+          </div>
+          <div class="form-group">
+            <label for="endDate">End Date</label>
+            <input type="date" id="endDate" />
+          </div>
+          <button id="filterHistoryBtn" class="btn">Filter</button>
+          <button id="resetHistoryBtn" class="btn">Reset</button>
+        </div>
+
+        <div id="historyContent">
+          <div class="history-summary">
+            <div class="summary-item">
+              <div class="summary-label">Total Transactions</div>
+              <div id="totalTransactions" class="summary-value">0</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-label">Total Revenue</div>
+              <div id="totalRevenue" class="summary-value">Rp 0</div>
+            </div>
+          </div>
+
+          <div id="transactionsList">
+            <table class="history-table">
+              <thead>
+                <tr>
+                  <th>Date & Time</th>
+                  <th>Items</th>
+                  <th>Total</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="transactionsTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="transactionDetailModal" class="modal">
+      <div class="modal-content">
+        <span class="close-modal detail-close">&times;</span>
+        <h2 style="text-align: center; margin-top: 0">Transaction Details</h2>
+
+        <div class="transaction-info">
+          <div class="transaction-id">
+            Transaction ID: <span id="detailTransactionId"></span>
+          </div>
+          <div class="transaction-date">
+            Date: <span id="detailTransactionDate"></span>
+          </div>
+        </div>
+
+        <div id="transactionItems">
+          <table class="detail-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Price (Rp)</th>
+                <th>Quantity</th>
+                <th>Subtotal (Rp)</th>
+              </tr>
+            </thead>
+            <tbody id="detailItemsTableBody"></tbody>
+          </table>
+        </div>
+
+        <div id="detailTotal" class="detail-total">Total: Rp 0</div>
       </div>
     </div>
 
