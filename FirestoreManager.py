@@ -83,7 +83,6 @@ class FirestoreManager:
 
             product_ref.set(product_data)
 
-            # Wait for the server timestamp to be set
             product_doc = product_ref.get()
             product_data = product_doc.to_dict()
 
@@ -186,7 +185,6 @@ class FirestoreManager:
 
             transaction_ref.set(transaction_data)
 
-            # Wait for the server timestamp to be set
             transaction_doc = transaction_ref.get()
             transaction_data = transaction_doc.to_dict()
 
@@ -231,13 +229,11 @@ class FirestoreManager:
         try:
             transactions_ref = self.db.collection('transactions')
 
-            # Convert dates to datetime objects if they're strings
             if isinstance(start_date, str):
                 start_date = datetime.datetime.fromisoformat(start_date)
             if isinstance(end_date, str):
                 end_date = datetime.datetime.fromisoformat(end_date)
 
-            # Add a day to end_date to make it inclusive
             end_date = end_date + datetime.timedelta(days=1)
 
             query = transactions_ref.where('timestamp', '>=', start_date).where('timestamp', '<', end_date)
@@ -257,3 +253,44 @@ class FirestoreManager:
         except Exception as e:
             print(f"Error retrieving transactions by date range from Firestore: {e}")
             return []
+
+    def delete_transaction(self, transaction_id):
+        if not self.is_connected():
+            return False
+
+        try:
+            transaction_ref = self.db.collection('transactions').document(transaction_id)
+            transaction_doc = transaction_ref.get()
+
+            if not transaction_doc.exists:
+                print(f"Transaction {transaction_id} not found in Firestore")
+                return False
+
+            transaction_ref.delete()
+            return True
+        except Exception as e:
+            print(f"Error deleting transaction from Firestore: {e}")
+            return False
+
+    def get_transaction_by_id(self, transaction_id):
+        if not self.is_connected():
+            return None
+
+        try:
+            transaction_ref = self.db.collection('transactions').document(transaction_id)
+            transaction_doc = transaction_ref.get()
+
+            if not transaction_doc.exists:
+                print(f"Transaction {transaction_id} not found in Firestore")
+                return None
+
+            data = transaction_doc.to_dict()
+            return {
+                'id': transaction_doc.id,
+                'items': data.get('items', []),
+                'total': data.get('total', 0),
+                'timestamp': data.get('timestamp')
+            }
+        except Exception as e:
+            print(f"Error retrieving transaction from Firestore: {e}")
+            return None

@@ -14,6 +14,9 @@ const checkoutModal = document.getElementById("checkoutModal");
 const closeModal = document.querySelector(".close-modal");
 const finishBtn = document.getElementById("finishBtn");
 const modalTotal = document.getElementById("modalTotal");
+const notification = document.getElementById("notification");
+const notificationText = document.getElementById("notificationText");
+const checkoutSuccess = document.getElementById("checkoutSuccess");
 
 const adminButton = document.getElementById("adminButton");
 const productModal = document.getElementById("productModal");
@@ -49,11 +52,61 @@ const detailTransactionId = document.getElementById("detailTransactionId");
 const detailTransactionDate = document.getElementById("detailTransactionDate");
 const detailItemsTableBody = document.getElementById("detailItemsTableBody");
 const detailTotal = document.getElementById("detailTotal");
+const deleteTransactionBtn = document.getElementById("deleteTransactionBtn");
+
+const confirmDeleteModal = document.getElementById("confirmDeleteModal");
+const confirmDeleteText = document.getElementById("confirmDeleteText");
+const confirmDeleteBtn = document.getElementById("confirmDeleteBtn");
+const cancelDeleteBtn = document.getElementById("cancelDeleteBtn");
 
 let currentTotal = 0;
 let products = {};
 let currentEditingProduct = null;
 let transactions = [];
+let currentTransaction = null;
+let deleteItemInfo = null;
+
+function showNotification(message) {
+  notificationText.textContent = message;
+  notification.classList.add("show");
+  notification.style.display = "block";
+  
+  setTimeout(() => {
+    notification.classList.remove("show");
+    setTimeout(() => {
+      notification.style.display = "none";
+    }, 300);
+  }, 3000);
+}
+
+function showCheckoutSuccess() {
+  checkoutSuccess.style.display = "flex";
+  setTimeout(() => {
+    checkoutSuccess.classList.add("show");
+  }, 10);
+  
+  setTimeout(() => {
+    checkoutSuccess.classList.remove("show");
+    setTimeout(() => {
+      checkoutSuccess.style.display = "none";
+    }, 300);
+  }, 3000);
+}
+
+function showConfirmDelete(type, name, callback) {
+  if (type === 'item') {
+    confirmDeleteText.textContent = `Are you sure you want to remove "${name}" from your cart?`;
+  } else if (type === 'transaction') {
+    confirmDeleteText.textContent = `Are you sure you want to delete this transaction? This action cannot be undone.`;
+  }
+  
+  confirmDeleteModal.style.display = "block";
+  
+  confirmDeleteBtn.onclick = () => {
+    confirmDeleteModal.style.display = "none";
+    callback();
+  };
+}
 
 startBtn.addEventListener("click", function () {
   socket.emit("start_scanning", {
@@ -107,6 +160,15 @@ socket.on("scanning_complete", function (data) {
 });
 
 function updateCart(cart, total) {
+  const oldProducts = {};
+  const cartItems = cartList.querySelectorAll(".cart-item");
+  cartItems.forEach(item => {
+    const productName = item.getAttribute("data-product");
+    if (productName) {
+      oldProducts[productName] = true;
+    }
+  });
+  
   cartList.innerHTML = "";
   currentTotal = total;
 
@@ -120,10 +182,33 @@ function updateCart(cart, total) {
     for (const [product, details] of Object.entries(cart)) {
       const item = document.createElement("li");
       item.className = "cart-item";
+      item.setAttribute("data-product", product);
+      
+      if (!oldProducts[product]) {
+        setTimeout(() => {
+          item.classList.add("adding");
+          showNotification(`${product} added to cart`);
+        }, 10);
+      }
+      
+      const itemInfo = document.createElement("div");
+      itemInfo.className = "cart-item-info";
       const subtotal = details.price * details.quantity;
-      item.innerText = `${product} x${
-        details.quantity
-      } - Rp ${details.price.toLocaleString()} each = Rp ${subtotal.toLocaleString()}`;
+      itemInfo.innerText = `${product} x${details.quantity} - Rp ${details.price.toLocaleString()} each = Rp ${subtotal.toLocaleString()}`;
+      
+      const deleteBtn = document.createElement("span");
+      deleteBtn.className = "cart-item-delete";
+      deleteBtn.innerHTML = '<i class="fas fa-times"></i>';
+      deleteBtn.addEventListener("click", function() {
+        showConfirmDelete('item', product, () => {
+          socket.emit("remove_item", {
+            name: product
+          });
+        });
+      });
+      
+      item.appendChild(itemInfo);
+      item.appendChild(deleteBtn);
       cartList.appendChild(item);
     }
     checkoutBtn.disabled = false;
@@ -143,8 +228,15 @@ closeModal.addEventListener("click", function() {
 finishBtn.addEventListener("click", function() {
   checkoutModal.style.display = "none";
   socket.emit("checkout_complete");
+  
+  showCheckoutSuccess();
+  
   updateCart({}, 0);
   statusText.innerText = "Payment completed. Ready to scan";
+});
+
+cancelDeleteBtn.addEventListener("click", function() {
+  confirmDeleteModal.style.display = "none";
 });
 
 window.addEventListener("click", function(event) {
@@ -159,6 +251,9 @@ window.addEventListener("click", function(event) {
   }
   if (event.target === transactionDetailModal) {
     transactionDetailModal.style.display = "none";
+  }
+  if (event.target === confirmDeleteModal) {
+    confirmDeleteModal.style.display = "none";
   }
 });
 
@@ -295,18 +390,18 @@ function renderProductsTable() {
     
     const editBtn = document.createElement("button");
     editBtn.className = "btn btn-edit";
-    editBtn.textContent = "Edit";
+    editBtn.innerHTML = '<i class="fas fa-edit"></i> Edit';
     editBtn.addEventListener("click", function() {
       showEditForm(name, price);
     });
     
     const deleteBtn = document.createElement("button");
     deleteBtn.className = "btn btn-delete";
-    deleteBtn.textContent = "Delete";
+    deleteBtn.innerHTML = '<i class="fas fa-trash"></i> Delete';
     deleteBtn.addEventListener("click", function() {
-      if (confirm(`Are you sure you want to delete ${name}?`)) {
+      showConfirmDelete('item', name, () => {
         socket.emit("delete_product", { name: name });
-      }
+      });
     });
     
     actionsCell.appendChild(editBtn);
@@ -350,6 +445,21 @@ resetHistoryBtn.addEventListener("click", function() {
   socket.emit("get_transaction_history");
 });
 
+deleteTransactionBtn.addEventListener("click", function() {
+  if (!currentTransaction) return;
+  
+  showConfirmDelete('transaction', '', () => {
+    socket.emit("delete_transaction", { id: currentTransaction.id });
+    transactionDetailModal.style.display = "none";
+    
+    const index = transactions.findIndex(t => t.id === currentTransaction.id);
+    if (index !== -1) {
+      transactions.splice(index, 1);
+      renderTransactionsTable();
+    }
+  });
+});
+
 function renderTransactionsTable() {
   transactionsTableBody.innerHTML = "";
   
@@ -386,12 +496,28 @@ function renderTransactionsTable() {
     
     const viewBtn = document.createElement("button");
     viewBtn.className = "btn btn-view";
-    viewBtn.textContent = "View";
+    viewBtn.innerHTML = '<i class="fas fa-eye"></i> View';
     viewBtn.addEventListener("click", function() {
       showTransactionDetail(transaction);
     });
     
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "btn btn-delete";
+    deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+    deleteBtn.addEventListener("click", function() {
+      showConfirmDelete('transaction', '', () => {
+        socket.emit("delete_transaction", { id: transaction.id });
+        
+        const index = transactions.findIndex(t => t.id === transaction.id);
+        if (index !== -1) {
+          transactions.splice(index, 1);
+          renderTransactionsTable();
+        }
+      });
+    });
+    
     actionsCell.appendChild(viewBtn);
+    actionsCell.appendChild(deleteBtn);
     
     row.appendChild(dateCell);
     row.appendChild(itemsCell);
@@ -408,6 +534,7 @@ function renderTransactionsTable() {
 }
 
 function showTransactionDetail(transaction) {
+  currentTransaction = transaction;
   detailTransactionId.textContent = transaction.id;
   detailTransactionDate.textContent = transaction.formatted_date || "N/A";
   
@@ -453,6 +580,13 @@ function showTransactionDetail(transaction) {
 
 detailClose.addEventListener("click", function() {
   transactionDetailModal.style.display = "none";
+  currentTransaction = null;
+});
+
+socket.on("item_removed", function(data) {
+  if (data.success) {
+    showNotification(`Removed ${data.name} from cart`);
+  }
 });
 
 socket.on("products_list", function(data) {
@@ -463,6 +597,7 @@ socket.on("products_list", function(data) {
 socket.on("product_added", function(data) {
   products[data.name] = data.price;
   renderProductsTable();
+  showNotification(`Product ${data.name} added successfully`);
   
   const productsTab = document.querySelector('.tab[data-tab="products"]');
   productsTab.click();
@@ -471,16 +606,24 @@ socket.on("product_added", function(data) {
 socket.on("product_updated", function(data) {
   products[data.name] = data.price;
   renderProductsTable();
+  showNotification(`Product ${data.name} updated successfully`);
 });
 
 socket.on("product_deleted", function(data) {
   delete products[data.name];
   renderProductsTable();
+  showNotification(`Product ${data.name} deleted successfully`);
 });
 
 socket.on("transaction_history", function(data) {
   transactions = data;
   renderTransactionsTable();
+});
+
+socket.on("transaction_deleted", function(data) {
+  if (data.success) {
+    showNotification("Transaction deleted successfully");
+  }
 });
 
 socket.on("connect", function() {

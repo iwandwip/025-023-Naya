@@ -92,3 +92,26 @@ class DetectorManager:
 
     def clear_cart(self):
         self.detector.clear_cart()
+
+    def remove_item(self, product_name):
+        with self.lock:
+            cart = self.detector.get_cart()
+            product_lower = product_name.lower()
+
+            if product_lower in cart:
+                if cart[product_lower]["quantity"] > 1:
+                    cart[product_lower]["quantity"] -= 1
+                    print(f"Decreased quantity of {product_name} in cart")
+                    return True
+                else:
+                    del cart[product_lower]
+
+                    for obj_id in list(self.detector.counted_objects.keys()):
+                        if obj_id.startswith(f"{product_lower}_"):
+                            del self.detector.counted_objects[obj_id]
+                            break
+
+                    print(f"Removed {product_name} from cart")
+                    return True
+
+            return False

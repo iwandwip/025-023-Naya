@@ -94,6 +94,26 @@ class SelfCheckoutApp:
             })
             print("Cart cleared")
 
+        @self.socketio.on('remove_item')
+        def handle_remove_item(data):
+            result = self.detector_manager.remove_item(data['name'])
+            if result:
+                self.socketio.emit('cart_update', {
+                    'cart': self.detector_manager.get_cart(),
+                    'total': self.detector_manager.calculate_total()
+                })
+                self.socketio.emit('item_removed', {
+                    'success': True,
+                    'name': data['name']
+                })
+                print(f"Removed item: {data['name']} from cart")
+            else:
+                self.socketio.emit('item_removed', {
+                    'success': False,
+                    'name': data['name']
+                })
+                print(f"Failed to remove item: {data['name']} (not found)")
+
         @self.socketio.on('checkout_complete')
         def handle_checkout_complete(data=None):
             cart = self.detector_manager.get_cart()
@@ -191,6 +211,36 @@ class SelfCheckoutApp:
 
             self.socketio.emit('transaction_history', formatted_transactions)
             print(f"Sent {len(formatted_transactions)} transactions by date range to client")
+
+        @self.socketio.on('delete_transaction')
+        def handle_delete_transaction(data):
+            if not self.firestore_manager.is_connected():
+                self.socketio.emit('transaction_deleted', {
+                    'success': False,
+                    'message': 'Firestore not connected'
+                })
+                return
+
+            transaction_id = data.get('id')
+            if not transaction_id:
+                self.socketio.emit('transaction_deleted', {
+                    'success': False,
+                    'message': 'No transaction ID provided'
+                })
+                return
+
+            result = self.firestore_manager.delete_transaction(transaction_id)
+            if result:
+                self.socketio.emit('transaction_deleted', {
+                    'success': True,
+                    'id': transaction_id
+                })
+                print(f"Deleted transaction with ID: {transaction_id}")
+            else:
+                self.socketio.emit('transaction_deleted', {
+                    'success': False,
+                    'message': 'Failed to delete transaction'
+                })
 
     def processing_loop(self):
         try:
