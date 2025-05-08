@@ -108,7 +108,15 @@ class ProductDetector:
                 cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
 
                 text = f"{label}: {confidence:.2f}"
-                cv2.putText(frame, text, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+                text_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)[0]
+
+                text_bg_x1 = x1
+                text_bg_y1 = y1 - 25 if y1 - 25 > 0 else 0
+                text_bg_x2 = x1 + text_size[0] + 10
+                text_bg_y2 = y1
+
+                cv2.rectangle(frame, (text_bg_x1, text_bg_y1), (text_bg_x2, text_bg_y2), color, -1)
+                cv2.putText(frame, text, (x1 + 5, y1 - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
 
                 if label_lower in self.product_catalog:
                     detected_objects.append({
@@ -182,10 +190,22 @@ class ProductDetector:
 
                 counting_zone_start = (counting_zone_x, 0)
                 counting_zone_end = (counting_zone_x, self.frame_height)
+
+                overlay = processed_frame.copy()
+                cv2.rectangle(overlay, (counting_zone_x, 0), (self.frame_width, self.frame_height), (0, 0, 255), -1)
+                cv2.addWeighted(overlay, 0.2, processed_frame, 0.8, 0, processed_frame)
+
                 cv2.line(processed_frame, counting_zone_start, counting_zone_end, (0, 0, 255), 2)
 
-                cv2.putText(processed_frame, "Counting Zone →", (counting_zone_x - 130, 30),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+                zone_text = "COUNTING ZONE"
+                text_size = cv2.getTextSize(zone_text, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)[0]
+                text_x = counting_zone_x - text_size[0] - 10
+                text_y = 50
+
+                cv2.rectangle(processed_frame, (text_x - 5, text_y - text_size[1] - 5),
+                              (counting_zone_x - 5, text_y + 5), (0, 0, 255), -1)
+                cv2.putText(processed_frame, zone_text, (text_x, text_y),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
 
                 self.frame = processed_frame
 
