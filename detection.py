@@ -16,7 +16,7 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 
 
 class ProductDetector:
-    def __init__(self, model_path, config_path="products.yaml", camera_id=0, counting_zone_width=0.2):
+    def __init__(self, model_path, config_path="products.yaml", camera_id=0):
         self.model_path = model_path
         self.config_path = config_path
         self.camera_id = camera_id
@@ -26,10 +26,11 @@ class ProductDetector:
         self.cart = {}
         self.frame = None
         self.product_catalog = {}
-        self.counting_zone_width = counting_zone_width
         self.frame_width = 0
         self.frame_height = 0
         self.counted_objects = {}
+        self.counting_zone_start_percent = 70
+        self.counting_zone_width_percent = 20
         self.load_config()
         self.load_model()
         self.stop_flag = threading.Event()
@@ -48,7 +49,7 @@ class ProductDetector:
             print(f"Config file {self.config_path} not found, using empty catalog")
 
     def load_model(self):
-        self.model = torch.hub.load('ultralytics/yolov5', 'custom', path=self.model_path)
+        self.model = torch.hub.load('ultralytics/yolov5', 'custom', path=self.model_path, force_reload=True)
 
     def add_to_cart(self, product_name):
         product_lower = product_name.lower()
@@ -151,7 +152,9 @@ class ProductDetector:
         self.frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         self.frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-        counting_zone_x = int(self.frame_width * (1 - self.counting_zone_width))
+        cv2.namedWindow("Controls")
+        cv2.createTrackbar("Zone Start %", "Controls", self.counting_zone_start_percent, 100, lambda x: None)
+        cv2.createTrackbar("Zone Width %", "Controls", self.counting_zone_width_percent, 50, lambda x: None)
 
         active_objects = {}
         last_seen = {}
@@ -162,6 +165,12 @@ class ProductDetector:
                 if not ret:
                     time.sleep(0.1)
                     continue
+
+                self.counting_zone_start_percent = cv2.getTrackbarPos("Zone Start %", "Controls")
+                self.counting_zone_width_percent = cv2.getTrackbarPos("Zone Width %", "Controls")
+
+                counting_zone_x = int(self.frame_width * self.counting_zone_start_percent / 100)
+                counting_zone_width = int(self.frame_width * self.counting_zone_width_percent / 100)
 
                 processed_frame, detected_objects = self.detect_objects(frame)
 
@@ -175,7 +184,7 @@ class ProductDetector:
                     object_id = f"{label}_{box[0]}_{box[1]}"
                     current_objects.add(object_id)
 
-                    if center_x > counting_zone_x and object_id not in self.counted_objects:
+                    if center_x > counting_zone_x and center_x < counting_zone_x + counting_zone_width and object_id not in self.counted_objects:
                         self.add_to_cart(label)
                         self.counted_objects[object_id] = True
 
@@ -188,24 +197,32 @@ class ProductDetector:
                             if obj_id in self.counted_objects:
                                 del self.counted_objects[obj_id]
 
-                counting_zone_start = (counting_zone_x, 0)
-                counting_zone_end = (counting_zone_x, self.frame_height)
+                zone_start = (counting_zone_x, 0)
+                zone_end = (counting_zone_x, self.frame_height)
+
+                zone_end_right = (counting_zone_x + counting_zone_width, 0)
+                zone_start_right = (counting_zone_x + counting_zone_width, self.frame_height)
 
                 overlay = processed_frame.copy()
-                cv2.rectangle(overlay, (counting_zone_x, 0), (self.frame_width, self.frame_height), (0, 0, 255), -1)
+                cv2.rectangle(overlay, (counting_zone_x, 0), (counting_zone_x + counting_zone_width, self.frame_height), (0, 0, 255), -1)
                 cv2.addWeighted(overlay, 0.2, processed_frame, 0.8, 0, processed_frame)
 
-                cv2.line(processed_frame, counting_zone_start, counting_zone_end, (0, 0, 255), 2)
+                cv2.line(processed_frame, zone_start, zone_end, (0, 0, 255), 2)
+                cv2.line(processed_frame, zone_end_right, zone_start_right, (0, 0, 255), 2)
 
                 zone_text = "COUNTING ZONE"
                 text_size = cv2.getTextSize(zone_text, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)[0]
-                text_x = counting_zone_x - text_size[0] - 10
-                text_y = 50
+                text_x = counting_zone_x + (counting_zone_width - text_size[0]) // 2
+                text_y = 30
 
                 cv2.rectangle(processed_frame, (text_x - 5, text_y - text_size[1] - 5),
-                              (counting_zone_x - 5, text_y + 5), (0, 0, 255), -1)
+                              (text_x + text_size[0] + 5, text_y + 5), (0, 0, 255), -1)
                 cv2.putText(processed_frame, zone_text, (text_x, text_y),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+
+                settings_text = f"Zone Start: {self.counting_zone_start_percent}%, Width: {self.counting_zone_width_percent}%"
+                cv2.putText(processed_frame, settings_text, (10, self.frame_height - 20),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
                 self.frame = processed_frame
 
