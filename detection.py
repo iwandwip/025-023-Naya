@@ -9,6 +9,8 @@ import yaml
 import os
 import warnings
 import inquirer
+import sys
+from pynput import keyboard
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -26,6 +28,7 @@ class ProductDetector:
         self.product_catalog = {}
         self.load_config()
         self.load_model()
+        self.stop_flag = threading.Event()
 
     def load_config(self):
         if os.path.exists(self.config_path):
@@ -33,7 +36,7 @@ class ProductDetector:
                 config = yaml.safe_load(file)
                 if config and 'products' in config:
                     for product, details in config['products'].items():
-                        self.product_catalog[product] = details['price']
+                        self.product_catalog[product.lower()] = details['price']
                     print(f"Loaded {len(self.product_catalog)} products from config")
                 else:
                     print("No products found in config, using empty catalog")
@@ -44,12 +47,13 @@ class ProductDetector:
         self.model = torch.hub.load('ultralytics/yolov5', 'custom', path=self.model_path, force_reload=True)
 
     def add_to_cart(self, product_name):
-        if product_name in self.product_catalog:
-            price = self.product_catalog[product_name]
-            if product_name in self.cart:
-                self.cart[product_name]["quantity"] += 1
+        product_lower = product_name.lower()
+        if product_lower in self.product_catalog:
+            price = self.product_catalog[product_lower]
+            if product_lower in self.cart:
+                self.cart[product_lower]["quantity"] += 1
             else:
-                self.cart[product_name] = {
+                self.cart[product_lower] = {
                     "price": price,
                     "quantity": 1
                 }
@@ -90,18 +94,19 @@ class ProductDetector:
 
         for i, row in results.pandas().xyxy[0].iterrows():
             label = row['name']
+            label_lower = label.lower()
             confidence = row['confidence']
             x1, y1, x2, y2 = int(row['xmin']), int(row['ymin']), int(row['xmax']), int(row['ymax'])
 
             if confidence > 0.5:
-                color = (0, 255, 0) if label in self.product_catalog else (0, 165, 255)
+                color = (0, 255, 0) if label_lower in self.product_catalog else (0, 165, 255)
                 cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
 
                 text = f"{label}: {confidence:.2f}"
                 cv2.putText(frame, text, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
-                if label in self.product_catalog:
-                    detected_products.append(label)
+                if label_lower in self.product_catalog:
+                    detected_products.append(label_lower)
 
         return frame, detected_products
 
@@ -110,6 +115,7 @@ class ProductDetector:
             return False
 
         self.is_running = True
+        self.stop_flag.clear()
         self.detection_thread = threading.Thread(target=self._detection_loop)
         self.detection_thread.daemon = True
         self.detection_thread.start()
@@ -117,6 +123,7 @@ class ProductDetector:
 
     def stop_detection(self):
         self.is_running = False
+        self.stop_flag.set()
         if self.detection_thread:
             self.detection_thread.join(timeout=1.0)
             self.detection_thread = None
@@ -130,7 +137,7 @@ class ProductDetector:
         cooldown_time = {}
 
         try:
-            while self.is_running:
+            while self.is_running and not self.stop_flag.is_set():
                 ret, frame = cap.read()
                 if not ret:
                     time.sleep(0.1)
@@ -147,11 +154,14 @@ class ProductDetector:
                         cooldown_time[product] = current_time
 
                 cv2.imshow("Product Detection", self.frame)
-                cv2.waitKey(1)
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    self.stop_flag.set()
+                    break
 
                 time.sleep(0.05)
         finally:
             cap.release()
+            cv2.destroyAllWindows()
 
     def get_current_frame(self):
         return self.frame
@@ -177,11 +187,36 @@ class ProductDetector:
         print("----------------------------")
 
 
+class KeyMonitor:
+    def __init__(self):
+        self.stop_requested = False
+        self.listener = None
+
+    def on_press(self, key):
+        try:
+            if key.char == 'y':
+                self.stop_requested = True
+                return False
+        except AttributeError:
+            pass
+
+    def start(self):
+        self.stop_requested = False
+        self.listener = keyboard.Listener(on_press=self.on_press)
+        self.listener.daemon = True
+        self.listener.start()
+
+    def stop(self):
+        if self.listener:
+            self.listener.stop()
+
+
 def main():
     MODEL_PATH = "models/yolov5s.pt"
     CONFIG_PATH = "products.yaml"
 
     detector = ProductDetector(model_path=MODEL_PATH, config_path=CONFIG_PATH)
+    key_monitor = KeyMonitor()
 
     print("Self-Checkout System")
     print("===================")
@@ -207,21 +242,15 @@ def main():
             detector.start_detection()
 
             print("Scanning products. Press 'y' to stop scanning.")
-            stop_scanning = False
+            key_monitor.start()
 
-            while not stop_scanning:
-                key = cv2.waitKey(1) & 0xFF
-                if key == ord('y'):
-                    stop_scanning = True
-
-                # Display current total
+            while not key_monitor.stop_requested and not detector.stop_flag.is_set():
                 print(f"\rTotal: Rp {detector.calculate_total()}", end="")
-                time.sleep(0.1)
+                time.sleep(0.5)
 
+            key_monitor.stop()
             detector.stop_detection()
-            cv2.destroyAllWindows()
 
-            # Display final cart and total
             detector.print_cart_summary()
 
             continue_questions = [

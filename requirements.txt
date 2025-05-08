@@ -53,3 +53,4 @@ flask
 firebase-admin
 flask-socketio
 inquirer
+pynput
