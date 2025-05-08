@@ -1,7 +1,8 @@
 # 025-023-Naya
 Rancang Bangun Sistem Self Checkout Pada Minimarket Menggunakan Yolov5
 
-"""
+Project Structure
+```
 self_checkout_system/
 │
 ├── app.py                  # File utama Flask app dan route
@@ -21,5 +22,5 @@ self_checkout_system/
 ├── models/                 # Model YOLOv5
 │   └── yolov5s.pt
 │
-└── products.yaml           # Data produk
-"""
+└── products.yaml           # Data produk         # Data produk
+```
