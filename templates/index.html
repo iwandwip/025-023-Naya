@@ -1,0 +1,18 @@
+<!-- templates/index.html -->
+{% extends 'base.html' %} {% block title %}Self Checkout System{% endblock %} {%
+block head %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.min.js"></script>
+{% endblock %} {% block content %}
+<header>
+  <h1>🛒 Self Checkout System</h1>
+  <p class="instruction">
+    Silakan letakkan barang belanjaan anda di konveyor yang tersedia untuk
+    memulai scan barang!
+  </p>
+</header>
+
+<!-- Rest of your existing content goes here -->
+{% endblock %} {% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="{{ url_for('static', filename='js/script.js') }}"></script>
+{% endblock %}
