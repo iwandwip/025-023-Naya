@@ -1,18 +1,334 @@
-<!-- templates/index.html -->
-{% extends 'base.html' %} {% block title %}Self Checkout System{% endblock %} {%
-block head %}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.min.js"></script>
-{% endblock %} {% block content %}
-<header>
-  <h1>🛒 Self Checkout System</h1>
-  <p class="instruction">
-    Silakan letakkan barang belanjaan anda di konveyor yang tersedia untuk
-    memulai scan barang!
-  </p>
-</header>
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Self-Checkout System</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.min.js"></script>
+    <style>
+      body {
+        font-family: "Poppins", sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: #f5f5f5;
+        color: #333;
+      }
 
-<!-- Rest of your existing content goes here -->
-{% endblock %} {% block scripts %}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="{{ url_for('static', filename='js/script.js') }}"></script>
-{% endblock %}
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+
+      header {
+        text-align: center;
+        margin-bottom: 30px;
+      }
+
+      h1 {
+        color: #2c3e50;
+        font-size: 2.5rem;
+        margin-bottom: 10px;
+      }
+
+      .main-content {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+      }
+
+      .video-container {
+        flex: 2;
+        min-width: 640px;
+        background-color: #fff;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+      }
+
+      #videoElement {
+        width: 100%;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+      }
+
+      .controls {
+        margin-top: 20px;
+      }
+
+      .btn {
+        background-color: #3498db;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        margin-right: 10px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 1rem;
+        transition: background-color 0.3s;
+      }
+
+      .btn:hover {
+        background-color: #2980b9;
+      }
+
+      .btn:disabled {
+        background-color: #bdc3c7;
+        cursor: not-allowed;
+      }
+
+      .btn-stop {
+        background-color: #e74c3c;
+      }
+
+      .btn-stop:hover {
+        background-color: #c0392b;
+      }
+
+      .zone-controls {
+        margin-top: 20px;
+      }
+
+      .slider-container {
+        margin-bottom: 15px;
+      }
+
+      .slider-container label {
+        display: block;
+        margin-bottom: 5px;
+      }
+
+      .slider {
+        width: 100%;
+      }
+
+      .cart-container {
+        flex: 1;
+        min-width: 300px;
+        background-color: #fff;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+      }
+
+      .cart-title {
+        margin-top: 0;
+        color: #2c3e50;
+        border-bottom: 2px solid #3498db;
+        padding-bottom: 10px;
+      }
+
+      .cart-list {
+        list-style: none;
+        padding: 0;
+      }
+
+      .cart-item {
+        padding: 10px 0;
+        border-bottom: 1px solid #eee;
+      }
+
+      .cart-total {
+        margin-top: 20px;
+        font-weight: bold;
+        font-size: 1.2rem;
+        text-align: right;
+      }
+
+      .status {
+        margin-top: 20px;
+        padding: 10px;
+        border-radius: 5px;
+        background-color: #f8f9fa;
+        text-align: center;
+      }
+
+      .loading {
+        display: none;
+      }
+
+      .spinner {
+        border: 4px solid rgba(0, 0, 0, 0.1);
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        border-left-color: #09f;
+        animation: spin 1s linear infinite;
+        display: inline-block;
+        vertical-align: middle;
+        margin-right: 10px;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>🛒 Self-Checkout System</h1>
+        <p>
+          Place items on the conveyor belt to detect and add them to your cart
+        </p>
+      </header>
+
+      <div class="main-content">
+        <div class="video-container">
+          <img id="videoElement" src="{{ url_for('video_feed') }}" />
+
+          <div class="controls">
+            <button id="startBtn" class="btn">Start Scanning</button>
+            <button id="stopBtn" class="btn btn-stop" disabled>
+              Stop Scanning
+            </button>
+          </div>
+
+          <div class="zone-controls">
+            <div class="slider-container">
+              <label for="zoneStartSlider"
+                >Counting Zone Start Position:
+                <span id="zoneStartValue">70</span>%</label
+              >
+              <input
+                type="range"
+                min="0"
+                max="90"
+                value="70"
+                class="slider"
+                id="zoneStartSlider"
+              />
+            </div>
+
+            <div class="slider-container">
+              <label for="zoneWidthSlider"
+                >Counting Zone Width:
+                <span id="zoneWidthValue">20</span>%</label
+              >
+              <input
+                type="range"
+                min="5"
+                max="50"
+                value="20"
+                class="slider"
+                id="zoneWidthSlider"
+              />
+            </div>
+          </div>
+
+          <div class="status">
+            <div class="loading">
+              <span class="spinner"></span> Scanning products...
+            </div>
+            <div id="statusText">Ready to scan</div>
+          </div>
+        </div>
+
+        <div class="cart-container">
+          <h2 class="cart-title">Shopping Cart</h2>
+          <ul id="cartList" class="cart-list">
+            <li class="cart-item">Your cart is empty</li>
+          </ul>
+          <div id="cartTotal" class="cart-total">Total: Rp 0</div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const socket = io();
+      const startBtn = document.getElementById("startBtn");
+      const stopBtn = document.getElementById("stopBtn");
+      const zoneStartSlider = document.getElementById("zoneStartSlider");
+      const zoneWidthSlider = document.getElementById("zoneWidthSlider");
+      const zoneStartValue = document.getElementById("zoneStartValue");
+      const zoneWidthValue = document.getElementById("zoneWidthValue");
+      const cartList = document.getElementById("cartList");
+      const cartTotal = document.getElementById("cartTotal");
+      const statusText = document.getElementById("statusText");
+      const loadingElement = document.querySelector(".loading");
+
+      startBtn.addEventListener("click", function () {
+        socket.emit("start_scanning", {
+          zone_start: parseInt(zoneStartSlider.value),
+          zone_width: parseInt(zoneWidthSlider.value),
+        });
+
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+        loadingElement.style.display = "block";
+        statusText.style.display = "none";
+      });
+
+      stopBtn.addEventListener("click", function () {
+        socket.emit("stop_scanning");
+
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+        loadingElement.style.display = "none";
+        statusText.style.display = "block";
+        statusText.innerText = "Scanning complete";
+      });
+
+      zoneStartSlider.oninput = function () {
+        zoneStartValue.innerText = this.value;
+        socket.emit("update_zone", {
+          zone_start: parseInt(this.value),
+          zone_width: parseInt(zoneWidthSlider.value),
+        });
+      };
+
+      zoneWidthSlider.oninput = function () {
+        zoneWidthValue.innerText = this.value;
+        socket.emit("update_zone", {
+          zone_start: parseInt(zoneStartSlider.value),
+          zone_width: parseInt(this.value),
+        });
+      };
+
+      socket.on("cart_update", function (data) {
+        updateCart(data.cart, data.total);
+      });
+
+      socket.on("scanning_complete", function (data) {
+        updateCart(data.cart, data.total);
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+        loadingElement.style.display = "none";
+        statusText.style.display = "block";
+        statusText.innerText = "Scanning complete";
+      });
+
+      function updateCart(cart, total) {
+        cartList.innerHTML = "";
+
+        if (Object.keys(cart).length === 0) {
+          const emptyItem = document.createElement("li");
+          emptyItem.className = "cart-item";
+          emptyItem.innerText = "Your cart is empty";
+          cartList.appendChild(emptyItem);
+        } else {
+          for (const [product, details] of Object.entries(cart)) {
+            const item = document.createElement("li");
+            item.className = "cart-item";
+            const subtotal = details.price * details.quantity;
+            item.innerText = `${product} x${
+              details.quantity
+            } - Rp ${details.price.toLocaleString()} each = Rp ${subtotal.toLocaleString()}`;
+            cartList.appendChild(item);
+          }
+        }
+
+        cartTotal.innerText = `Total: Rp ${total.toLocaleString()}`;
+      }
+    </script>
+  </body>
+</html>

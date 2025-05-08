@@ -1,198 +1,167 @@
-from flask import Flask, render_template, request, jsonify
-import torch
-from PIL import Image
-import io
+from flask import Flask, render_template, Response, jsonify
+from flask_socketio import SocketIO
+import cv2
 import threading
 import time
-import firebase_admin
-from firebase_admin import credentials, firestore
-import pathlib
-import cv2
-import base64
-from flask_socketio import SocketIO
+import detection
+
+app = Flask(__name__)
+socketio = SocketIO(app)
+
+detector = None
+output_frame = None
+frame_lock = threading.Lock()
 
 
-class ProductDetector:
-    def __init__(self, model_path):
-        pathlib.PosixPath = pathlib.WindowsPath
-        self.model = torch.hub.load('ultralytics/yolov5', 'custom', path=model_path, force_reload=True)
-
-    def detect_from_image(self, image):
-        results = self.model(image, size=640)
-        return results
-
-    def detect_from_file(self, file_bytes):
-        img = Image.open(io.BytesIO(file_bytes)).convert('RGB')
-        return self.detect_from_image(img)
+def initialize_detector():
+    global detector
+    model_path = "models/yolov5s.pt"
+    config_path = "products.yaml"
+    detector = detection.ProductDetector(model_path=model_path, config_path=config_path)
 
 
-class ShoppingCart:
-    def __init__(self):
-        self.cart = {}
-        self.product_prices = {
-            "Indomie": 3200,
-            "Sabun": 4000,
-            "Indomilk": 5250,
-            "Keju": 16600,
-            "Kecap": 4000
-        }
-
-    def add_product(self, name):
-        if name in self.product_prices:
-            if name in self.cart:
-                self.cart[name]['jumlah'] += 1
-            else:
-                self.cart[name] = {'jumlah': 1, 'harga': self.product_prices[name]}
-
-    def clear(self):
-        self.cart = {}
-
-    def get_items(self):
-        items = []
-        for name, item in self.cart.items():
-            items.append({
-                'name': name,
-                'price': item['harga'],
-                'qty': item['jumlah']
-            })
-        return items
+def generate_frames():
+    global output_frame
+    while True:
+        with frame_lock:
+            if output_frame is None:
+                continue
+            (flag, encoded_image) = cv2.imencode(".jpg", output_frame)
+            if not flag:
+                continue
+            yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' +
+                   bytearray(encoded_image) + b'\r\n')
+        time.sleep(0.05)
 
 
-class FirebaseManager:
-    def __init__(self, credential_path):
-        cred = credentials.Certificate(credential_path)
-        firebase_admin.initialize_app(cred)
-        self.db = firestore.client()
+def detection_loop():
+    global detector, output_frame
 
-    def save_transaction(self, products, total):
-        transaction_ref = self.db.collection('transactions').document()
-        transaction_ref.set({
-            'products': products,
-            'total': total,
-            'timestamp': firestore.SERVER_TIMESTAMP
-        })
-        return True
+    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+    frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
+    zone_start_percent = 70
+    zone_width_percent = 20
 
-class CameraScanner:
-    def __init__(self, detector, cart, socketio):
-        self.detector = detector
-        self.cart = cart
-        self.socketio = socketio
-        self.scanning = False
-
-    def encode_frame(self, frame):
-        _, buffer = cv2.imencode('.jpg', frame)
-        jpg_as_text = base64.b64encode(buffer).decode('utf-8')
-        return jpg_as_text
-
-    def scan_loop(self):
-        cap = cv2.VideoCapture(0)
-        cap.set(3, 640)
-        cap.set(4, 480)
-
-        while self.scanning:
-            ret, frame = cap.read()
-            if not ret:
+    try:
+        while True:
+            success, frame = cap.read()
+            if not success:
+                time.sleep(0.1)
                 continue
 
-            img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-            results = self.detector.detect_from_image(img)
-            labels = results.pandas().xyxy[0]['name'].tolist()
+            counting_zone_x = int(frame_width * zone_start_percent / 100)
+            counting_zone_width = int(frame_width * zone_width_percent / 100)
 
-            for label in labels:
-                self.cart.add_product(label)
+            if detector.is_running:
+                processed_frame, detected_objects = detector.detect_objects(frame)
 
-            for label, x1, y1, x2, y2 in zip(
-                    results.pandas().xyxy[0]['name'],
-                    results.pandas().xyxy[0]['xmin'],
-                    results.pandas().xyxy[0]['ymin'],
-                    results.pandas().xyxy[0]['xmax'],
-                    results.pandas().xyxy[0]['ymax']):
+                current_time = time.time()
+                current_objects = set()
 
-                cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
-                cv2.putText(frame, label, (int(x1), int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0), 2)
+                for obj in detected_objects:
+                    label = obj['label']
+                    box = obj['box']
+                    center_x = obj['center'][0]
+                    object_id = f"{label}_{box[0]}_{box[1]}"
+                    current_objects.add(object_id)
 
-            encoded_frame = self.encode_frame(frame)
-            self.socketio.emit('frame', encoded_frame)
+                    if center_x > counting_zone_x and center_x < counting_zone_x + counting_zone_width and object_id not in detector.counted_objects:
+                        detector.add_to_cart(label)
+                        detector.counted_objects[object_id] = True
 
-            time.sleep(3)
+                        socketio.emit('cart_update', {
+                            'cart': detector.get_cart(),
+                            'total': detector.calculate_total()
+                        })
+            else:
+                processed_frame = frame.copy()
 
+            zone_start = (counting_zone_x, 0)
+            zone_end = (counting_zone_x, frame_height)
+
+            zone_end_right = (counting_zone_x + counting_zone_width, 0)
+            zone_start_right = (counting_zone_x + counting_zone_width, frame_height)
+
+            overlay = processed_frame.copy()
+            cv2.rectangle(overlay, (counting_zone_x, 0), (counting_zone_x + counting_zone_width, frame_height), (0, 0, 255), -1)
+            cv2.addWeighted(overlay, 0.2, processed_frame, 0.8, 0, processed_frame)
+
+            cv2.line(processed_frame, zone_start, zone_end, (0, 0, 255), 2)
+            cv2.line(processed_frame, zone_end_right, zone_start_right, (0, 0, 255), 2)
+
+            zone_text = "COUNTING ZONE"
+            text_size = cv2.getTextSize(zone_text, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)[0]
+            text_x = counting_zone_x + (counting_zone_width - text_size[0]) // 2
+            text_y = 30
+
+            cv2.rectangle(processed_frame, (text_x - 5, text_y - text_size[1] - 5),
+                          (text_x + text_size[0] + 5, text_y + 5), (0, 0, 255), -1)
+            cv2.putText(processed_frame, zone_text, (text_x, text_y),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+
+            settings_text = f"Zone Start: {zone_start_percent}%, Width: {zone_width_percent}%"
+            cv2.putText(processed_frame, settings_text, (10, frame_height - 20),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+
+            with frame_lock:
+                output_frame = processed_frame.copy()
+    finally:
         cap.release()
 
-    def start(self):
-        self.cart.clear()
-        self.scanning = True
-        thread = threading.Thread(target=self.scan_loop)
-        thread.start()
 
-    def stop(self):
-        self.scanning = False
-        time.sleep(1)
-        return self.cart.get_items()
+@app.route('/')
+def index():
+    return render_template('index.html')
 
 
-class SmartCheckoutApp:
-    def __init__(self):
-        self.app = Flask(__name__)
-        self.socketio = SocketIO(self.app)
+@app.route('/video_feed')
+def video_feed():
+    return Response(generate_frames(),
+                    mimetype='multipart/x-mixed-replace; boundary=frame')
 
-        self.detector = ProductDetector(model_path='models/nayol_fixed.pt')
-        self.cart = ShoppingCart()
-        self.firebase = FirebaseManager(credential_path=r"D:\Downloads\YOLOV5-TEST-LAGI-BISSMILAH\yolov5\credentials.json")
-        self.scanner = CameraScanner(self.detector, self.cart, self.socketio)
 
-        self.setup_routes()
+@socketio.on('connect')
+def handle_connect():
+    print('Client connected')
 
-    def setup_routes(self):
-        @self.app.route('/')
-        def home():
-            return render_template('index.html')
 
-        @self.app.route('/start_scan', methods=['POST'])
-        def start_scan():
-            self.scanner.start()
-            return jsonify({'status': 'Scanning dimulai'})
+@socketio.on('disconnect')
+def handle_disconnect():
+    print('Client disconnected')
 
-        @self.app.route('/stop_scan', methods=['POST'])
-        def stop_scan():
-            items = self.scanner.stop()
-            return jsonify({'products': items})
 
-        @self.app.route('/detect', methods=['POST'])
-        def detect():
-            if 'file' not in request.files:
-                return jsonify([])
+@socketio.on('start_scanning')
+def handle_start_scanning(data):
+    global detector
+    detector.clear_cart()
+    detector.is_running = True
+    print(f"Scanning started with zone start: {data['zone_start']}%, width: {data['zone_width']}%")
 
-            file = request.files['file']
-            img_bytes = file.read()
 
-            results = self.detector.detect_from_file(img_bytes)
-            labels = results.pandas().xyxy[0]['name'].tolist()
+@socketio.on('stop_scanning')
+def handle_stop_scanning():
+    global detector
+    detector.is_running = False
+    socketio.emit('scanning_complete', {
+        'cart': detector.get_cart(),
+        'total': detector.calculate_total()
+    })
+    print("Scanning stopped")
 
-            detected_products = []
-            for label in labels:
-                if label in self.cart.product_prices:
-                    detected_products.append({
-                        'name': label,
-                        'price': self.cart.product_prices[label]
-                    })
 
-            return jsonify(detected_products)
-
-        @self.app.route('/save_transaction', methods=['POST'])
-        def save_transaction():
-            data = request.get_json()
-            products = data['products']
-            total = data['total']
-
-            self.firebase.save_transaction(products, total)
-            return jsonify({'status': 'success', 'message': 'Transaction saved successfully'})
-
-    def run(self, host='0.0.0.0', port=5000):
-        self.socketio.run(self.app, host=host, port=port)
+@socketio.on('update_zone')
+def handle_update_zone(data):
+    global zone_start_percent, zone_width_percent
+    zone_start_percent = data['zone_start']
+    zone_width_percent = data['zone_width']
+    print(f"Zone updated - start: {zone_start_percent}%, width: {zone_width_percent}%")
 
 
 if __name__ == '__main__':
-    app = SmartCheckoutApp()
-    app.run()
+    initialize_detector()
+    detection_thread = threading.Thread(target=detection_loop)
+    detection_thread.daemon = True
+    detection_thread.start()
+    socketio.run(app, host='0.0.0.0', port=5000, debug=True, allow_unsafe_werkzeug=True)
