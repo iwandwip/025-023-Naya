@@ -11,3 +11,9 @@ products:
     price: 4000
   Person:
     price: 10000
+  Laptop:
+    price: 10000
+  Tv:
+    price: 10000
+  Cell Phone:
+    price: 10000
