@@ -2,25 +2,29 @@
 Rancang Bangun Sistem Self Checkout Pada Minimarket Menggunakan Yolov5
 
 Project Structure
+
 ```
+
 self_checkout_system/
 │
-├── app.py                  # File utama Flask app dan route
-├── camera.py               # Kelas Camera
-├── detector.py             # Kelas DetectorManager
-├── product.py              # Kelas ProductManager
+├── App.py                  
+├── CameraHandler.py        
+├── DetectorManager.py      
+├── ProductDetector.py      
+├── ProductManager.py       
 │
-├── static/                 # Aset statis
+├── static/                 
 │   ├── css/
-│   │   └── style.css       # Semua CSS
+│   │   └── style.css       
 │   └── js/
-│       └── main.js         # Semua JavaScript
+│       └── main.js         
 │
 ├── templates/
-│   └── index.html          # Template HTML utama
+│   └── index.html          
 │
-├── models/                 # Model YOLOv5
+├── models/                 
 │   └── yolov5s.pt
 │
-└── products.yaml           # Data produk
+└── products.yaml        
+
 ```

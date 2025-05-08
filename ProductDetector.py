@@ -1,4 +1,3 @@
-# detection.py
 import cv2
 import torch
 import numpy as np
@@ -8,9 +7,7 @@ import threading
 import yaml
 import os
 import warnings
-import inquirer
 import sys
-from pynput import keyboard
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -258,94 +255,3 @@ class ProductDetector:
 
         print(f"Total: Rp {self.calculate_total()}")
         print("----------------------------")
-
-
-class KeyMonitor:
-    def __init__(self):
-        self.stop_requested = False
-        self.listener = None
-
-    def on_press(self, key):
-        try:
-            if key.char == 'y':
-                self.stop_requested = True
-                return False
-        except AttributeError:
-            pass
-
-    def start(self):
-        self.stop_requested = False
-        self.listener = keyboard.Listener(on_press=self.on_press)
-        self.listener.daemon = True
-        self.listener.start()
-
-    def stop(self):
-        if self.listener:
-            self.listener.stop()
-
-
-def main():
-    MODEL_PATH = "models/yolov5s.pt"
-    CONFIG_PATH = "products.yaml"
-
-    detector = ProductDetector(model_path=MODEL_PATH, config_path=CONFIG_PATH)
-    key_monitor = KeyMonitor()
-
-    print("Self-Checkout System")
-    print("===================")
-
-    running = True
-    while running:
-        questions = [
-            inquirer.List('action',
-                          message="Select an option:",
-                          choices=[
-                              '1. Start Scanning',
-                              '2. Clear Shopping Cart',
-                              '3. Exit'
-                          ],
-                          ),
-        ]
-
-        answers = inquirer.prompt(questions)
-        choice = answers['action'][0]
-
-        if choice == '1':
-            print("\nStarting product scanning...")
-            detector.start_detection()
-
-            print("Scanning products. Press 'y' to stop scanning.")
-            key_monitor.start()
-
-            while not key_monitor.stop_requested and not detector.stop_flag.is_set():
-                print(f"\rTotal: Rp {detector.calculate_total()}", end="")
-                time.sleep(0.5)
-
-            key_monitor.stop()
-            detector.stop_detection()
-
-            detector.print_cart_summary()
-
-            continue_questions = [
-                inquirer.Confirm('continue',
-                                 message="Return to main menu?",
-                                 default=True
-                                 ),
-            ]
-
-            continue_answer = inquirer.prompt(continue_questions)
-            if not continue_answer['continue']:
-                running = False
-
-        elif choice == '2':
-            detector.clear_cart()
-
-        elif choice == '3':
-            print("Exiting...")
-            running = False
-
-    cv2.destroyAllWindows()
-
-
-if __name__ == "__main__":
-    main()
