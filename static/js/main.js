@@ -255,6 +255,9 @@ window.addEventListener("click", function(event) {
   if (event.target === confirmDeleteModal) {
     confirmDeleteModal.style.display = "none";
   }
+  if (event.target === checkoutSuccess) {
+    checkoutSuccess.style.display = "none";
+  }
 });
 
 function openCheckoutModal(total) {

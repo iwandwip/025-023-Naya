@@ -22,10 +22,6 @@
   <body>
     <div class="container">
       <header>
-        <h1>🛒 Self-Checkout System</h1>
-        <p>
-          Place items on the conveyor belt to detect and add them to your cart
-        </p>
         <div class="header-buttons">
           <button id="historyButton" class="admin-button history-button">
             <i class="fas fa-history"></i> Transaction History
@@ -34,6 +30,10 @@
             <i class="fas fa-cog"></i> Manage Products
           </button>
         </div>
+        <h1><i class="fas fa-shopping-cart"></i> Self-Checkout System</h1>
+        <p>
+          Place items on the conveyor belt to detect and add them to your cart
+        </p>
       </header>
 
       <div class="main-content">
@@ -112,7 +112,22 @@
     <div id="checkoutSuccess" class="checkout-success">
       <div class="success-animation">
         <div class="checkmark-circle">
-          <div class="checkmark"></div>
+          <svg
+            class="checkmark"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 52 52"
+          >
+            <path
+              class="checkmark-path"
+              fill="none"
+              stroke="#FFFFFF"
+              stroke-width="8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-miterlimit="10"
+              d="M14 27.6l7.2 7.2 16.8-16.8"
+            />
+          </svg>
         </div>
       </div>
       <h2>Payment Successful!</h2>

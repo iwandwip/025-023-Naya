@@ -15,25 +15,26 @@ body {
 
 header {
   text-align: center;
-  margin-bottom: 30px;
+  margin-bottom: 40px;
   position: relative;
-  padding-bottom: 10px;
+  padding-bottom: 20px;
+  padding-top: 60px;
   border-bottom: 1px solid #eee;
 }
 
 .header-buttons {
   position: absolute;
   right: 0;
-  top: 10px;
+  top: 0;
   display: flex;
-  gap: 10px;
+  gap: 15px;
 }
 
 .admin-button {
   background-color: #34495e;
   color: white;
   border: none;
-  padding: 8px 16px;
+  padding: 10px 18px;
   border-radius: 5px;
   cursor: pointer;
   font-size: 0.9rem;
@@ -64,7 +65,8 @@ header {
 h1 {
   color: #2c3e50;
   font-size: 2.5rem;
-  margin-bottom: 10px;
+  margin-bottom: 15px;
+  margin-top: 0;
 }
 
 .main-content {
@@ -168,7 +170,7 @@ h1 {
 
 .slider-container label {
   display: block;
-  margin-bottom: 5px;
+  margin-bottom: 8px;
 }
 
 .slider {
@@ -360,44 +362,37 @@ h1 {
 }
 
 .success-animation {
-  margin-bottom: 20px;
+  margin-bottom: 40px;
 }
 
 .checkmark-circle {
-  width: 80px;
-  height: 80px;
+  width: 100px;
+  height: 100px;
   position: relative;
-  display: inline-block;
-  vertical-align: top;
-  margin-right: 20px;
+  background-color: #27ae60;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
-.checkmark-circle .checkmark {
-  width: 40px;
-  height: 80px;
-  border-right: 7px solid #27ae60;
-  border-top: 7px solid #27ae60;
-  position: absolute;
-  top: -10px;
-  left: 25px;
-  transform: rotate(135deg);
-  animation: checkmark 0.8s ease forwards;
-  opacity: 0;
-  transform-origin: left top;
+.checkmark {
+  width: 60px;
+  height: 60px;
 }
 
-@keyframes checkmark {
+.checkmark-path {
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  animation: dash 1s ease-in-out forwards;
+}
+
+@keyframes dash {
   0% {
-    opacity: 0;
-    transform: scale(0.3) rotate(135deg);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(0.6) rotate(135deg);
+    stroke-dashoffset: 100;
   }
   100% {
-    opacity: 1;
-    transform: scale(1) rotate(135deg);
+    stroke-dashoffset: 0;
   }
 }
 
@@ -428,6 +423,10 @@ h1 {
 .product-modal-content,
 .history-modal-content {
   max-width: 800px;
+}
+
+.history-modal-content {
+  margin: 5% auto;
 }
 
 .confirm-modal-content {
@@ -624,7 +623,7 @@ h1 {
   display: flex;
   flex-wrap: wrap;
   gap: 15px;
-  padding: 15px;
+  padding: 20px;
   background-color: #f8f9fa;
   border-radius: 8px;
   margin-bottom: 20px;
@@ -643,7 +642,7 @@ h1 {
   margin-bottom: 20px;
   background-color: #f8f9fa;
   border-radius: 8px;
-  padding: 15px;
+  padding: 20px;
 }
 
 .summary-item {
@@ -654,7 +653,7 @@ h1 {
 .summary-label {
   font-weight: 600;
   color: #7f8c8d;
-  margin-bottom: 5px;
+  margin-bottom: 8px;
 }
 
 .summary-value {
@@ -672,7 +671,7 @@ h1 {
 
 .transaction-id,
 .transaction-date {
-  margin-bottom: 5px;
+  margin-bottom: 8px;
   font-weight: 600;
 }
 
@@ -693,7 +692,7 @@ h1 {
 .confirm-actions {
   display: flex;
   justify-content: center;
-  gap: 10px;
+  gap: 15px;
   margin-top: 20px;
 }
 
@@ -723,10 +722,19 @@ h1 {
 }
 
 @media (max-width: 992px) {
+  header {
+    padding-top: 120px;
+  }
+  
   .header-buttons {
-    position: static;
+    position: absolute;
+    top: 20px;
+    left: 0;
+    right: 0;
+    width: 100%;
+    display: flex;
     justify-content: center;
-    margin-top: 15px;
+    gap: 20px;
   }
   
   .main-content {
@@ -754,20 +762,26 @@ h1 {
 @media (max-width: 576px) {
   h1 {
     font-size: 2rem;
+    margin-top: 0;
+  }
+  
+  header {
+    padding-top: 160px;
   }
   
   .container {
     padding: 10px;
   }
   
+  .header-buttons {
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+  }
+  
   .modal-content {
     padding: 20px;
     margin: 10px;
-  }
-  
-  .header-buttons {
-    flex-direction: column;
-    gap: 5px;
   }
   
   .controls {
@@ -783,7 +797,7 @@ h1 {
   
   .history-summary {
     flex-direction: column;
-    gap: 10px;
+    gap: 15px;
   }
   
   .product-table th, 

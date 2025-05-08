@@ -47,9 +47,9 @@ self_checkout_system/
 ├── App.py                  # Main application file
 ├── CameraHandler.py        # Camera handling
 ├── DetectorManager.py      # Detection manager
+├── FirestoreManager.py     # Firestore integration
 ├── ProductDetector.py      # Product detection logic
 ├── ProductManager.py       # Product management
-├── FirestoreManager.py     # Firestore integration
 ├── seed_data.py            # Script to populate initial data
 │
 ├── static/                 
