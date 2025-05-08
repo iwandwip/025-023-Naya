@@ -22,5 +22,5 @@ self_checkout_system/
 ├── models/                 # Model YOLOv5
 │   └── yolov5s.pt
 │
-└── products.yaml           # Data produk         # Data produk
+└── products.yaml           # Data produk
 ```
