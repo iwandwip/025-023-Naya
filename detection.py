@@ -16,7 +16,7 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 
 
 class ProductDetector:
-    def __init__(self, model_path, config_path="products.yaml", camera_id=0):
+    def __init__(self, model_path, config_path="products.yaml", camera_id=0, counting_zone_width=0.2):
         self.model_path = model_path
         self.config_path = config_path
         self.camera_id = camera_id
@@ -26,6 +26,10 @@ class ProductDetector:
         self.cart = {}
         self.frame = None
         self.product_catalog = {}
+        self.counting_zone_width = counting_zone_width
+        self.frame_width = 0
+        self.frame_height = 0
+        self.counted_objects = {}
         self.load_config()
         self.load_model()
         self.stop_flag = threading.Event()
@@ -44,7 +48,7 @@ class ProductDetector:
             print(f"Config file {self.config_path} not found, using empty catalog")
 
     def load_model(self):
-        self.model = torch.hub.load('ultralytics/yolov5', 'custom', path=self.model_path, force_reload=True)
+        self.model = torch.hub.load('ultralytics/yolov5', 'custom', path=self.model_path)
 
     def add_to_cart(self, product_name):
         product_lower = product_name.lower()
@@ -66,6 +70,7 @@ class ProductDetector:
 
     def clear_cart(self):
         self.cart = {}
+        self.counted_objects = {}
         print("Shopping cart cleared.")
 
     def calculate_total(self):
@@ -90,7 +95,7 @@ class ProductDetector:
         img = Image.fromarray(rgb_frame)
         results = self.model(img, size=640)
 
-        detected_products = []
+        detected_objects = []
 
         for i, row in results.pandas().xyxy[0].iterrows():
             label = row['name']
@@ -106,9 +111,13 @@ class ProductDetector:
                 cv2.putText(frame, text, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
                 if label_lower in self.product_catalog:
-                    detected_products.append(label_lower)
+                    detected_objects.append({
+                        'label': label_lower,
+                        'box': (x1, y1, x2, y2),
+                        'center': ((x1 + x2) // 2, (y1 + y2) // 2)
+                    })
 
-        return frame, detected_products
+        return frame, detected_objects
 
     def start_detection(self):
         if self.is_running:
@@ -131,10 +140,13 @@ class ProductDetector:
 
     def _detection_loop(self):
         cap = cv2.VideoCapture(self.camera_id)
-        cap.set(3, 640)
-        cap.set(4, 480)
+        self.frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        self.frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-        cooldown_time = {}
+        counting_zone_x = int(self.frame_width * (1 - self.counting_zone_width))
+
+        active_objects = {}
+        last_seen = {}
 
         try:
             while self.is_running and not self.stop_flag.is_set():
@@ -143,15 +155,39 @@ class ProductDetector:
                     time.sleep(0.1)
                     continue
 
-                processed_frame, detected_products = self.detect_objects(frame)
-                self.frame = processed_frame
+                processed_frame, detected_objects = self.detect_objects(frame)
 
                 current_time = time.time()
+                current_objects = set()
 
-                for product in detected_products:
-                    if product not in cooldown_time or (current_time - cooldown_time[product]) > 3:
-                        self.add_to_cart(product)
-                        cooldown_time[product] = current_time
+                for obj in detected_objects:
+                    label = obj['label']
+                    box = obj['box']
+                    center_x = obj['center'][0]
+                    object_id = f"{label}_{box[0]}_{box[1]}"
+                    current_objects.add(object_id)
+
+                    if center_x > counting_zone_x and object_id not in self.counted_objects:
+                        self.add_to_cart(label)
+                        self.counted_objects[object_id] = True
+
+                    last_seen[object_id] = current_time
+
+                for obj_id in list(last_seen.keys()):
+                    if obj_id not in current_objects:
+                        if current_time - last_seen[obj_id] > 2.0:
+                            del last_seen[obj_id]
+                            if obj_id in self.counted_objects:
+                                del self.counted_objects[obj_id]
+
+                counting_zone_start = (counting_zone_x, 0)
+                counting_zone_end = (counting_zone_x, self.frame_height)
+                cv2.line(processed_frame, counting_zone_start, counting_zone_end, (0, 0, 255), 2)
+
+                cv2.putText(processed_frame, "Counting Zone →", (counting_zone_x - 130, 30),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+
+                self.frame = processed_frame
 
                 cv2.imshow("Product Detection", self.frame)
                 if cv2.waitKey(1) & 0xFF == ord('q'):
