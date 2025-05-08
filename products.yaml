@@ -1,0 +1,11 @@
+products:
+  Indomie:
+    price: 3200
+  Sabun:
+    price: 4000
+  Indomilk:
+    price: 5250
+  Keju:
+    price: 16600
+  Kecap:
+    price: 4000
