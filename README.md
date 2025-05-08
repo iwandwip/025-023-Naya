@@ -1,20 +1,25 @@
 # 025-023-Naya
 Rancang Bangun Sistem Self Checkout Pada Minimarket Menggunakan Yolov5
 
-self_checkout/
-├── app.py              # Main application file
-├── detection.py        # Detection logic
-├── database.py         # Firebase operations
-├── static/
+"""
+self_checkout_system/
+│
+├── app.py                  # File utama Flask app dan route
+├── camera.py               # Kelas Camera
+├── detector.py             # Kelas DetectorManager
+├── product.py              # Kelas ProductManager
+│
+├── static/                 # Aset statis
 │   ├── css/
-│   │   └── style.css
+│   │   └── style.css       # Semua CSS
 │   └── js/
-│       └── script.js
+│       └── main.js         # Semua JavaScript
+│
 ├── templates/
-│   ├── base.html       # Template inheritance base
-│   ├── index.html
-│   ├── receipt.html
-│   └── payment.html
-├── models/
-│   └── nayol_fixed.pt
-└── requirements.txt
+│   └── index.html          # Template HTML utama
+│
+├── models/                 # Model YOLOv5
+│   └── yolov5s.pt
+│
+└── products.yaml           # Data produk
+"""
