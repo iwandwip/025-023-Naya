@@ -9,6 +9,7 @@
       rel="stylesheet"
     />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
       body {
         font-family: "Poppins", sans-serif;
@@ -89,6 +90,22 @@
         background-color: #c0392b;
       }
 
+      .btn-checkout {
+        background-color: #27ae60;
+        width: 100%;
+        margin-top: 20px;
+        font-weight: bold;
+      }
+
+      .btn-checkout:hover {
+        background-color: #219653;
+      }
+
+      .btn-checkout:disabled {
+        background-color: #bdc3c7;
+        cursor: not-allowed;
+      }
+
       .zone-controls {
         margin-top: 20px;
       }
@@ -113,6 +130,8 @@
         border-radius: 10px;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         padding: 20px;
+        display: flex;
+        flex-direction: column;
       }
 
       .cart-title {
@@ -125,6 +144,9 @@
       .cart-list {
         list-style: none;
         padding: 0;
+        flex-grow: 1;
+        overflow-y: auto;
+        max-height: 300px;
       }
 
       .cart-item {
@@ -161,6 +183,88 @@
         display: inline-block;
         vertical-align: middle;
         margin-right: 10px;
+      }
+
+      .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        overflow: auto;
+      }
+
+      .modal-content {
+        background-color: #fff;
+        margin: 10% auto;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        max-width: 500px;
+        position: relative;
+        animation: modalFadeIn 0.3s;
+      }
+
+      @keyframes modalFadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(-30px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .close-modal {
+        position: absolute;
+        top: 15px;
+        right: 20px;
+        font-size: 24px;
+        font-weight: bold;
+        cursor: pointer;
+        color: #7f8c8d;
+      }
+
+      .close-modal:hover {
+        color: #34495e;
+      }
+
+      .qr-container {
+        text-align: center;
+        margin: 20px 0;
+      }
+
+      #qrCode {
+        margin: 0 auto;
+        background-color: white;
+        padding: 15px;
+        border-radius: 5px;
+        display: inline-block;
+      }
+
+      .modal-total {
+        font-size: 1.5rem;
+        font-weight: bold;
+        text-align: center;
+        margin: 20px 0;
+        color: #2c3e50;
+      }
+
+      .btn-finish {
+        background-color: #27ae60;
+        display: block;
+        width: 100%;
+        padding: 12px;
+        margin-top: 20px;
+        font-weight: bold;
+      }
+
+      .btn-finish:hover {
+        background-color: #219653;
       }
 
       @keyframes spin {
@@ -239,7 +343,22 @@
             <li class="cart-item">Your cart is empty</li>
           </ul>
           <div id="cartTotal" class="cart-total">Total: Rp 0</div>
+          <button id="checkoutBtn" class="btn btn-checkout" disabled>
+            Checkout
+          </button>
         </div>
+      </div>
+    </div>
+
+    <div id="checkoutModal" class="modal">
+      <div class="modal-content">
+        <span class="close-modal">&times;</span>
+        <h2 style="text-align: center; margin-top: 0">Payment</h2>
+        <div class="qr-container">
+          <div id="qrCode"></div>
+        </div>
+        <div id="modalTotal" class="modal-total">Total: Rp 0</div>
+        <button id="finishBtn" class="btn btn-finish">Complete Payment</button>
       </div>
     </div>
 
@@ -255,6 +374,13 @@
       const cartTotal = document.getElementById("cartTotal");
       const statusText = document.getElementById("statusText");
       const loadingElement = document.querySelector(".loading");
+      const checkoutBtn = document.getElementById("checkoutBtn");
+      const checkoutModal = document.getElementById("checkoutModal");
+      const closeModal = document.querySelector(".close-modal");
+      const finishBtn = document.getElementById("finishBtn");
+      const modalTotal = document.getElementById("modalTotal");
+
+      let currentTotal = 0;
 
       startBtn.addEventListener("click", function () {
         socket.emit("start_scanning", {
@@ -309,12 +435,14 @@
 
       function updateCart(cart, total) {
         cartList.innerHTML = "";
+        currentTotal = total;
 
         if (Object.keys(cart).length === 0) {
           const emptyItem = document.createElement("li");
           emptyItem.className = "cart-item";
           emptyItem.innerText = "Your cart is empty";
           cartList.appendChild(emptyItem);
+          checkoutBtn.disabled = true;
         } else {
           for (const [product, details] of Object.entries(cart)) {
             const item = document.createElement("li");
@@ -325,10 +453,60 @@
             } - Rp ${details.price.toLocaleString()} each = Rp ${subtotal.toLocaleString()}`;
             cartList.appendChild(item);
           }
+          checkoutBtn.disabled = false;
         }
 
         cartTotal.innerText = `Total: Rp ${total.toLocaleString()}`;
       }
+
+      checkoutBtn.addEventListener("click", function () {
+        openCheckoutModal(currentTotal);
+      });
+
+      closeModal.addEventListener("click", function () {
+        checkoutModal.style.display = "none";
+      });
+
+      finishBtn.addEventListener("click", function () {
+        checkoutModal.style.display = "none";
+        socket.emit("clear_cart");
+        updateCart({}, 0);
+        statusText.innerText = "Payment completed. Ready to scan";
+      });
+
+      window.addEventListener("click", function (event) {
+        if (event.target === checkoutModal) {
+          checkoutModal.style.display = "none";
+        }
+      });
+
+      function openCheckoutModal(total) {
+        if (total <= 0) return;
+
+        modalTotal.innerText = `Total: Rp ${total.toLocaleString()}`;
+
+        const qrContainer = document.getElementById("qrCode");
+        qrContainer.innerHTML = "";
+
+        new QRCode(qrContainer, {
+          text: `TOTAL:${total}`,
+          width: 200,
+          height: 200,
+          colorDark: "#000000",
+          colorLight: "#ffffff",
+          correctLevel: QRCode.CorrectLevel.H,
+        });
+
+        checkoutModal.style.display = "block";
+      }
+
+      socket.on("connect", function () {
+        console.log("Connected to server");
+      });
+
+      socket.on("disconnect", function () {
+        console.log("Disconnected from server");
+      });
     </script>
   </body>
 </html>

@@ -187,7 +187,6 @@ class SelfCheckoutApp:
         @self.socketio.on('stop_scanning')
         def handle_stop_scanning():
             self.detector_manager.stop_scanning()
-            self.stop_camera_processing()
             self.socketio.emit('scanning_complete', {
                 'cart': self.detector_manager.get_cart(),
                 'total': self.detector_manager.calculate_total()
@@ -198,6 +197,15 @@ class SelfCheckoutApp:
         def handle_update_zone(data):
             self.detector_manager.set_zone_parameters(data['zone_start'], data['zone_width'])
             print(f"Zone updated - start: {data['zone_start']}%, width: {data['zone_width']}%")
+
+        @self.socketio.on('clear_cart')
+        def handle_clear_cart():
+            self.detector_manager.clear_cart()
+            self.socketio.emit('cart_update', {
+                'cart': {},
+                'total': 0
+            })
+            print("Cart cleared")
 
     def processing_loop(self):
         try:
@@ -230,7 +238,7 @@ class SelfCheckoutApp:
                         'total': self.detector_manager.calculate_total()
                     })
 
-                time.sleep(0.03)  # ~30fps
+                time.sleep(0.03)
         finally:
             self.camera.stop()
 
@@ -277,7 +285,7 @@ class SelfCheckoutApp:
             yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' +
                    bytearray(encoded_image) + b'\r\n')
 
-            time.sleep(0.03)  # ~30fps
+            time.sleep(0.03)
 
     def run(self):
         self.socketio.run(self.app, host=self.host, port=self.port, debug=False, allow_unsafe_werkzeug=True)
