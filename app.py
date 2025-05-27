@@ -66,10 +66,12 @@ class SelfCheckoutApp:
 
         @self.socketio.on('start_scanning')
         def handle_start_scanning(data):
-            self.detector_manager.set_zone_parameters(data['zone_start'], data['zone_width'])
+            zone_start = data.get('zoneStart', 70)
+            zone_width = data.get('zoneWidth', 20)
+            self.detector_manager.set_zone_parameters(zone_start, zone_width)
             self.start_camera_processing()
             self.detector_manager.start_scanning()
-            print(f"Scanning started with zone start: {data['zone_start']}%, width: {data['zone_width']}%")
+            print(f"Scanning started with zone start: {zone_start}%, width: {zone_width}%")
 
         @self.socketio.on('stop_scanning')
         def handle_stop_scanning():
@@ -380,6 +382,87 @@ class SelfCheckoutApp:
             })
 
             print(f"Started conveyor simulation for {obj_id}")
+
+        @self.socketio.on('update_detection_config')
+        def handle_update_detection_config(data):
+            success = self.detector_manager.apply_detection_config(data)
+            self.socketio.emit('config_updated', {
+                'success': success,
+                'type': 'detection',
+                'config': data
+            })
+            if success:
+                print(f"Updated detection config: {data}")
+
+        @self.socketio.on('update_visual_config')
+        def handle_update_visual_config(data):
+            success = self.detector_manager.apply_visual_config(data)
+            self.socketio.emit('config_updated', {
+                'success': success,
+                'type': 'visual',
+                'config': data
+            })
+            if success:
+                print(f"Updated visual config: {data}")
+
+        @self.socketio.on('update_advanced_config')
+        def handle_update_advanced_config(data):
+            success = self.detector_manager.apply_advanced_config(data)
+            self.socketio.emit('config_updated', {
+                'success': success,
+                'type': 'advanced',
+                'config': data
+            })
+            if success:
+                print(f"Updated advanced config: {data}")
+
+        @self.socketio.on('apply_preset_config')
+        def handle_apply_preset_config(data):
+            preset = data
+            success = self.detector_manager.apply_preset_config(preset)
+            self.socketio.emit('config_applied', {
+                'success': success,
+                'preset': preset
+            })
+            if success:
+                print(f"Applied preset config: {preset}")
+
+        @self.socketio.on('apply_full_config')
+        def handle_apply_full_config(data):
+            success = self.detector_manager.apply_full_config(data)
+            self.socketio.emit('config_applied', {
+                'success': success,
+                'config': data
+            })
+            if success:
+                print(f"Applied full configuration")
+
+        @self.socketio.on('save_config')
+        def handle_save_config(data):
+            success = self.detector_manager.save_config(data)
+            self.socketio.emit('config_saved', {
+                'success': success
+            })
+            if success:
+                print("Configuration saved")
+
+        @self.socketio.on('load_config')
+        def handle_load_config():
+            config = self.detector_manager.load_config()
+            self.socketio.emit('config_loaded', {
+                'success': config is not None,
+                'config': config
+            })
+            print("Configuration loaded")
+
+        @self.socketio.on('reset_config')
+        def handle_reset_config():
+            success = self.detector_manager.reset_config()
+            self.socketio.emit('config_reset', {
+                'success': success
+            })
+            if success:
+                print("Configuration reset to defaults")
 
     def processing_loop(self):
         try:

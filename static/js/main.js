@@ -1,10 +1,6 @@
 const socket = io();
 const startBtn = document.getElementById("startBtn");
 const stopBtn = document.getElementById("stopBtn");
-const zoneStartSlider = document.getElementById("zoneStartSlider");
-const zoneWidthSlider = document.getElementById("zoneWidthSlider");
-const zoneStartValue = document.getElementById("zoneStartValue");
-const zoneWidthValue = document.getElementById("zoneWidthValue");
 const cartList = document.getElementById("cartList");
 const cartTotal = document.getElementById("cartTotal");
 const statusText = document.getElementById("statusText");
@@ -70,6 +66,41 @@ const simulatedObjectsList = document.getElementById("simulatedObjectsList");
 const testCountingBtn = document.getElementById("testCountingBtn");
 const clearSimObjectsBtn = document.getElementById("clearSimObjectsBtn");
 
+const configButton = document.getElementById("configButton");
+const floatingConfigWindow = document.getElementById("floatingConfigWindow");
+const configWindowHeader = document.getElementById("configWindowHeader");
+const closeConfigWindow = document.getElementById("closeConfigWindow");
+const configTabs = document.querySelectorAll(".config-tab");
+const configTabContents = document.querySelectorAll(".config-tab-content");
+
+const configZoneStart = document.getElementById("configZoneStart");
+const configZoneStartValue = document.getElementById("configZoneStartValue");
+const configZoneWidth = document.getElementById("configZoneWidth");
+const configZoneWidthValue = document.getElementById("configZoneWidthValue");
+const configShowZone = document.getElementById("configShowZone");
+const configThreshold = document.getElementById("configThreshold");
+const configThresholdValue = document.getElementById("configThresholdValue");
+const configAutoCount = document.getElementById("configAutoCount");
+
+const configShowBoxes = document.getElementById("configShowBoxes");
+const configShowLabels = document.getElementById("configShowLabels");
+const configShowConfidence = document.getElementById("configShowConfidence");
+const configZoneColor = document.getElementById("configZoneColor");
+const configBoxColor = document.getElementById("configBoxColor");
+const configZoneOpacity = document.getElementById("configZoneOpacity");
+const configZoneOpacityValue = document.getElementById("configZoneOpacityValue");
+
+const configResolution = document.getElementById("configResolution");
+const configFrameRate = document.getElementById("configFrameRate");
+const configFrameRateValue = document.getElementById("configFrameRateValue");
+const configModel = document.getElementById("configModel");
+const configProcessingSpeed = document.getElementById("configProcessingSpeed");
+const configPreset = document.getElementById("configPreset");
+
+const saveConfigBtn = document.getElementById("saveConfigBtn");
+const resetConfigBtn = document.getElementById("resetConfigBtn");
+const applyConfigBtn = document.getElementById("applyConfigBtn");
+
 let currentTotal = 0;
 let products = {};
 let currentEditingProduct = null;
@@ -86,6 +117,36 @@ let dragStartY = 0;
 let windowStartX = 0;
 let windowStartY = 0;
 let windowPosition = { x: 20, y: 20 };
+let configWindowPosition = { x: 20, y: 20 };
+let isDraggingConfig = false;
+let currentDragWindow = null;
+
+let defaultConfig = {
+  detection: {
+    zoneStart: 70,
+    zoneWidth: 20,
+    showZone: true,
+    threshold: 0.5,
+    autoCount: true
+  },
+  visual: {
+    showBoxes: true,
+    showLabels: true,
+    showConfidence: true,
+    zoneColor: "#ff0000",
+    boxColor: "#00ff00",
+    zoneOpacity: 0.2
+  },
+  advanced: {
+    resolution: "640x480",
+    frameRate: 30,
+    model: "yolov5s",
+    processingSpeed: "balanced",
+    preset: "retail"
+  }
+};
+
+let currentConfig = { ...defaultConfig };
 
 function showNotification(message) {
   notificationText.textContent = message;
@@ -129,37 +190,146 @@ function showConfirmDelete(type, name, callback) {
   };
 }
 
-function initFloatingWindow() {
-  windowHeader.addEventListener('mousedown', startDragging);
+function loadConfig() {
+  const saved = localStorage.getItem('self_checkout_config');
+  if (saved) {
+    currentConfig = { ...defaultConfig, ...JSON.parse(saved) };
+  }
+  applyConfigToUI();
+}
+
+function saveConfig() {
+  localStorage.setItem('self_checkout_config', JSON.stringify(currentConfig));
+  showNotification("Configuration saved successfully");
+}
+
+function resetConfig() {
+  currentConfig = { ...defaultConfig };
+  applyConfigToUI();
+  showNotification("Configuration reset to defaults");
+}
+
+function applyConfigToUI() {
+  configZoneStart.value = currentConfig.detection.zoneStart;
+  configZoneStartValue.textContent = currentConfig.detection.zoneStart + '%';
+  configZoneWidth.value = currentConfig.detection.zoneWidth;
+  configZoneWidthValue.textContent = currentConfig.detection.zoneWidth + '%';
+  configShowZone.checked = currentConfig.detection.showZone;
+  configThreshold.value = currentConfig.detection.threshold;
+  configThresholdValue.textContent = Math.round(currentConfig.detection.threshold * 100) + '%';
+  configAutoCount.checked = currentConfig.detection.autoCount;
+
+  configShowBoxes.checked = currentConfig.visual.showBoxes;
+  configShowLabels.checked = currentConfig.visual.showLabels;
+  configShowConfidence.checked = currentConfig.visual.showConfidence;
+  configZoneColor.value = currentConfig.visual.zoneColor;
+  configBoxColor.value = currentConfig.visual.boxColor;
+  configZoneOpacity.value = currentConfig.visual.zoneOpacity;
+  configZoneOpacityValue.textContent = Math.round(currentConfig.visual.zoneOpacity * 100) + '%';
+
+  configResolution.value = currentConfig.advanced.resolution;
+  configFrameRate.value = currentConfig.advanced.frameRate;
+  configFrameRateValue.textContent = currentConfig.advanced.frameRate + ' FPS';
+  configModel.value = currentConfig.advanced.model;
+  configProcessingSpeed.value = currentConfig.advanced.processingSpeed;
+  configPreset.value = currentConfig.advanced.preset;
+
+  updateColorLabels();
+}
+
+function updateColorLabels() {
+  const zoneColorLabel = document.querySelector('#configZoneColor + .config-color-label');
+  const boxColorLabel = document.querySelector('#configBoxColor + .config-color-label');
+  
+  if (zoneColorLabel) {
+    zoneColorLabel.textContent = getColorName(configZoneColor.value);
+  }
+  if (boxColorLabel) {
+    boxColorLabel.textContent = getColorName(configBoxColor.value);
+  }
+}
+
+function getColorName(hex) {
+  const colors = {
+    '#ff0000': 'Red',
+    '#00ff00': 'Green',
+    '#0000ff': 'Blue',
+    '#ffff00': 'Yellow',
+    '#ff00ff': 'Magenta',
+    '#00ffff': 'Cyan',
+    '#ffffff': 'White',
+    '#000000': 'Black',
+    '#ffa500': 'Orange',
+    '#800080': 'Purple'
+  };
+  return colors[hex.toLowerCase()] || 'Custom';
+}
+
+function applyPreset(preset) {
+  switch (preset) {
+    case 'retail':
+      currentConfig = {
+        ...currentConfig,
+        detection: { ...currentConfig.detection, threshold: 0.7, autoCount: true },
+        visual: { ...currentConfig.visual, showBoxes: true, showLabels: true, showConfidence: false }
+      };
+      break;
+    case 'demo':
+      currentConfig = {
+        ...currentConfig,
+        detection: { ...currentConfig.detection, threshold: 0.5, autoCount: true },
+        visual: { ...currentConfig.visual, showBoxes: true, showLabels: true, showConfidence: true }
+      };
+      break;
+    case 'debug':
+      currentConfig = {
+        ...currentConfig,
+        detection: { ...currentConfig.detection, threshold: 0.3, autoCount: false },
+        visual: { ...currentConfig.visual, showBoxes: true, showLabels: true, showConfidence: true }
+      };
+      break;
+  }
+  applyConfigToUI();
+}
+
+function initFloatingWindows() {
+  windowHeader.addEventListener('mousedown', (e) => startDragging(e, 'simulation'));
+  configWindowHeader.addEventListener('mousedown', (e) => startDragging(e, 'config'));
+  
   document.addEventListener('mousemove', doDrag);
   document.addEventListener('mouseup', stopDragging);
   
-  windowHeader.addEventListener('touchstart', handleTouchStart, { passive: false });
+  windowHeader.addEventListener('touchstart', (e) => handleTouchStart(e, 'simulation'), { passive: false });
+  configWindowHeader.addEventListener('touchstart', (e) => handleTouchStart(e, 'config'), { passive: false });
   document.addEventListener('touchmove', handleTouchMove, { passive: false });
   document.addEventListener('touchend', handleTouchEnd);
   
   closeFloatingWindow.addEventListener('click', hideFloatingWindow);
+  closeConfigWindow.addEventListener('click', hideConfigWindow);
   
-  setWindowPosition(windowPosition.x, windowPosition.y);
+  setWindowPosition(windowPosition.x, windowPosition.y, 'simulation');
+  setWindowPosition(configWindowPosition.x, configWindowPosition.y, 'config');
 }
 
-function startDragging(e) {
+function startDragging(e, windowType) {
   isDragging = true;
+  currentDragWindow = windowType;
   dragStartX = e.type === 'mousedown' ? e.clientX : e.touches[0].clientX;
   dragStartY = e.type === 'mousedown' ? e.clientY : e.touches[0].clientY;
   
-  const rect = floatingSimulationWindow.getBoundingClientRect();
+  const window = windowType === 'simulation' ? floatingSimulationWindow : floatingConfigWindow;
+  const rect = window.getBoundingClientRect();
   windowStartX = rect.left;
   windowStartY = rect.top;
   
-  floatingSimulationWindow.classList.add('dragging');
+  window.classList.add('dragging');
   document.body.classList.add('no-select');
   
   e.preventDefault();
 }
 
 function doDrag(e) {
-  if (!isDragging) return;
+  if (!isDragging || !currentDragWindow) return;
   
   const clientX = e.type === 'mousemove' ? e.clientX : e.touches[0].clientX;
   const clientY = e.type === 'mousemove' ? e.clientY : e.touches[0].clientY;
@@ -170,24 +340,32 @@ function doDrag(e) {
   const newX = windowStartX + deltaX;
   const newY = windowStartY + deltaY;
   
-  setWindowPosition(newX, newY);
+  setWindowPosition(newX, newY, currentDragWindow);
   e.preventDefault();
 }
 
 function stopDragging() {
-  if (!isDragging) return;
+  if (!isDragging || !currentDragWindow) return;
+  
+  const window = currentDragWindow === 'simulation' ? floatingSimulationWindow : floatingConfigWindow;
+  const rect = window.getBoundingClientRect();
+  
+  if (currentDragWindow === 'simulation') {
+    windowPosition.x = rect.left;
+    windowPosition.y = rect.top;
+  } else {
+    configWindowPosition.x = rect.left;
+    configWindowPosition.y = rect.top;
+  }
   
   isDragging = false;
-  floatingSimulationWindow.classList.remove('dragging');
+  currentDragWindow = null;
+  window.classList.remove('dragging');
   document.body.classList.remove('no-select');
-  
-  const rect = floatingSimulationWindow.getBoundingClientRect();
-  windowPosition.x = rect.left;
-  windowPosition.y = rect.top;
 }
 
-function handleTouchStart(e) {
-  startDragging(e);
+function handleTouchStart(e, windowType) {
+  startDragging(e, windowType);
 }
 
 function handleTouchMove(e) {
@@ -198,8 +376,9 @@ function handleTouchEnd(e) {
   stopDragging();
 }
 
-function setWindowPosition(x, y) {
-  const windowRect = floatingSimulationWindow.getBoundingClientRect();
+function setWindowPosition(x, y, windowType) {
+  const window = windowType === 'simulation' ? floatingSimulationWindow : floatingConfigWindow;
+  const windowRect = window.getBoundingClientRect();
   const viewportWidth = window.innerWidth;
   const viewportHeight = window.innerHeight;
   
@@ -211,9 +390,9 @@ function setWindowPosition(x, y) {
   const clampedX = Math.max(minX, Math.min(maxX, x));
   const clampedY = Math.max(minY, Math.min(maxY, y));
   
-  floatingSimulationWindow.style.left = clampedX + 'px';
-  floatingSimulationWindow.style.top = clampedY + 'px';
-  floatingSimulationWindow.style.right = 'auto';
+  window.style.left = clampedX + 'px';
+  window.style.top = clampedY + 'px';
+  window.style.right = 'auto';
 }
 
 function showFloatingWindow() {
@@ -222,7 +401,7 @@ function showFloatingWindow() {
   
   const viewportWidth = window.innerWidth;
   const defaultX = Math.max(20, viewportWidth - 400);
-  setWindowPosition(windowPosition.x || defaultX, windowPosition.y || 20);
+  setWindowPosition(windowPosition.x || defaultX, windowPosition.y || 20, 'simulation');
 }
 
 function hideFloatingWindow() {
@@ -237,12 +416,136 @@ function hideFloatingWindow() {
   socket.emit("toggle_simulation", { enabled: false });
 }
 
-startBtn.addEventListener("click", function () {
-  socket.emit("start_scanning", {
-    zone_start: parseInt(zoneStartSlider.value),
-    zone_width: parseInt(zoneWidthSlider.value),
+function showConfigWindow() {
+  floatingBackdrop.classList.add('active');
+  floatingConfigWindow.classList.add('active');
+  
+  const viewportWidth = window.innerWidth;
+  const defaultX = Math.max(20, viewportWidth - 470);
+  setWindowPosition(configWindowPosition.x || defaultX, configWindowPosition.y || 20, 'config');
+}
+
+function hideConfigWindow() {
+  floatingBackdrop.classList.remove('active');
+  floatingConfigWindow.classList.remove('active');
+}
+
+function initConfigTabs() {
+  configTabs.forEach(tab => {
+    tab.addEventListener('click', function() {
+      configTabs.forEach(t => t.classList.remove('active'));
+      configTabContents.forEach(content => content.classList.remove('active'));
+      
+      this.classList.add('active');
+      const tabName = this.getAttribute('data-config-tab');
+      const content = document.getElementById(tabName + 'ConfigTab');
+      if (content) {
+        content.classList.add('active');
+      }
+    });
+  });
+}
+
+function initConfigControls() {
+  configZoneStart.addEventListener('input', function() {
+    currentConfig.detection.zoneStart = parseInt(this.value);
+    configZoneStartValue.textContent = this.value + '%';
+    socket.emit('update_detection_config', currentConfig.detection);
   });
 
+  configZoneWidth.addEventListener('input', function() {
+    currentConfig.detection.zoneWidth = parseInt(this.value);
+    configZoneWidthValue.textContent = this.value + '%';
+    socket.emit('update_detection_config', currentConfig.detection);
+  });
+
+  configShowZone.addEventListener('change', function() {
+    currentConfig.detection.showZone = this.checked;
+    socket.emit('update_detection_config', currentConfig.detection);
+  });
+
+  configThreshold.addEventListener('input', function() {
+    currentConfig.detection.threshold = parseFloat(this.value);
+    configThresholdValue.textContent = Math.round(this.value * 100) + '%';
+    socket.emit('update_detection_config', currentConfig.detection);
+  });
+
+  configAutoCount.addEventListener('change', function() {
+    currentConfig.detection.autoCount = this.checked;
+    socket.emit('update_detection_config', currentConfig.detection);
+  });
+
+  configShowBoxes.addEventListener('change', function() {
+    currentConfig.visual.showBoxes = this.checked;
+    socket.emit('update_visual_config', currentConfig.visual);
+  });
+
+  configShowLabels.addEventListener('change', function() {
+    currentConfig.visual.showLabels = this.checked;
+    socket.emit('update_visual_config', currentConfig.visual);
+  });
+
+  configShowConfidence.addEventListener('change', function() {
+    currentConfig.visual.showConfidence = this.checked;
+    socket.emit('update_visual_config', currentConfig.visual);
+  });
+
+  configZoneColor.addEventListener('change', function() {
+    currentConfig.visual.zoneColor = this.value;
+    updateColorLabels();
+    socket.emit('update_visual_config', currentConfig.visual);
+  });
+
+  configBoxColor.addEventListener('change', function() {
+    currentConfig.visual.boxColor = this.value;
+    updateColorLabels();
+    socket.emit('update_visual_config', currentConfig.visual);
+  });
+
+  configZoneOpacity.addEventListener('input', function() {
+    currentConfig.visual.zoneOpacity = parseFloat(this.value);
+    configZoneOpacityValue.textContent = Math.round(this.value * 100) + '%';
+    socket.emit('update_visual_config', currentConfig.visual);
+  });
+
+  configResolution.addEventListener('change', function() {
+    currentConfig.advanced.resolution = this.value;
+    socket.emit('update_advanced_config', currentConfig.advanced);
+  });
+
+  configFrameRate.addEventListener('input', function() {
+    currentConfig.advanced.frameRate = parseInt(this.value);
+    configFrameRateValue.textContent = this.value + ' FPS';
+    socket.emit('update_advanced_config', currentConfig.advanced);
+  });
+
+  configModel.addEventListener('change', function() {
+    currentConfig.advanced.model = this.value;
+    socket.emit('update_advanced_config', currentConfig.advanced);
+  });
+
+  configProcessingSpeed.addEventListener('change', function() {
+    currentConfig.advanced.processingSpeed = this.value;
+    socket.emit('update_advanced_config', currentConfig.advanced);
+  });
+
+  configPreset.addEventListener('change', function() {
+    if (this.value !== 'custom') {
+      applyPreset(this.value);
+      socket.emit('apply_preset_config', this.value);
+    }
+  });
+
+  saveConfigBtn.addEventListener('click', saveConfig);
+  resetConfigBtn.addEventListener('click', resetConfig);
+  applyConfigBtn.addEventListener('click', function() {
+    socket.emit('apply_full_config', currentConfig);
+    showNotification("Configuration applied successfully");
+  });
+}
+
+startBtn.addEventListener("click", function () {
+  socket.emit("start_scanning", currentConfig.detection);
   startBtn.disabled = true;
   stopBtn.disabled = false;
   loadingElement.style.display = "block";
@@ -251,7 +554,6 @@ startBtn.addEventListener("click", function () {
 
 stopBtn.addEventListener("click", function () {
   socket.emit("stop_scanning");
-
   startBtn.disabled = false;
   stopBtn.disabled = true;
   loadingElement.style.display = "none";
@@ -259,21 +561,9 @@ stopBtn.addEventListener("click", function () {
   statusText.innerText = "Scanning complete";
 });
 
-zoneStartSlider.oninput = function () {
-  zoneStartValue.innerText = this.value;
-  socket.emit("update_zone", {
-    zone_start: parseInt(this.value),
-    zone_width: parseInt(zoneWidthSlider.value),
-  });
-};
-
-zoneWidthSlider.oninput = function () {
-  zoneWidthValue.innerText = this.value;
-  socket.emit("update_zone", {
-    zone_start: parseInt(zoneStartSlider.value),
-    zone_width: parseInt(this.value),
-  });
-};
+configButton.addEventListener("click", function() {
+  showConfigWindow();
+});
 
 simulationToggle.addEventListener("change", function() {
   isSimulationMode = this.checked;
@@ -569,13 +859,18 @@ window.addEventListener("click", function(event) {
   }
   if (event.target === floatingBackdrop) {
     hideFloatingWindow();
+    hideConfigWindow();
   }
 });
 
 window.addEventListener("resize", function() {
   if (isSimulationMode) {
     const rect = floatingSimulationWindow.getBoundingClientRect();
-    setWindowPosition(rect.left, rect.top);
+    setWindowPosition(rect.left, rect.top, 'simulation');
+  }
+  if (floatingConfigWindow.classList.contains('active')) {
+    const rect = floatingConfigWindow.getBoundingClientRect();
+    setWindowPosition(rect.left, rect.top, 'config');
   }
 });
 
@@ -1021,6 +1316,14 @@ socket.on("simulated_objects_list", function(data) {
   renderSimulatedObjectsList();
 });
 
+socket.on("config_updated", function(data) {
+  showNotification("Configuration updated successfully");
+});
+
+socket.on("config_applied", function(data) {
+  showNotification("Configuration applied to detection system");
+});
+
 function setDefaultDates() {
   const today = new Date();
   const thirtyDaysAgo = new Date();
@@ -1040,5 +1343,8 @@ function setDefaultDates() {
 document.addEventListener("DOMContentLoaded", function() {
   setDefaultDates();
   socket.emit("get_simulated_objects");
-  initFloatingWindow();
+  loadConfig();
+  initFloatingWindows();
+  initConfigTabs();
+  initConfigControls();
 });
