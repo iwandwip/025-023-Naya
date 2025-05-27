@@ -556,3 +556,11 @@ document.addEventListener("DOMContentLoaded", function() {
   initConfigTabs();
   initConfigControls();
 });
+
+window.handleSimulationClose = function() {
+  simulationToggle.checked = false;
+  isSimulationMode = false;
+  simulationStatus.textContent = "Real Detection Mode";
+  simulationStatus.style.color = "#27ae60";
+  socket.emit("toggle_simulation", { enabled: false });
+};

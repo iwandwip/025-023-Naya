@@ -196,7 +196,8 @@ input:checked + .slider-switch:before {
   pointer-events: auto;
 }
 
-.floating-config-window {
+.floating-config-window,
+.floating-simulation-window {
   position: fixed;
   top: 20px;
   right: 20px;
@@ -214,54 +215,35 @@ input:checked + .slider-switch:before {
   resize: both;
   min-width: 400px;
   min-height: 500px;
-  pointer-events: auto;
+  pointer-events: none;
 }
 
-.floating-config-window.active {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-  pointer-events: auto;
-}
-
-.floating-config-window.dragging {
-  transition: none;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
-  transform: scale(1.02);
-  z-index: 1002;
-}
-
-.floating-simulation-window {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  width: 380px;
-  max-height: 80vh;
-  background-color: #ffffff;
-  border-radius: 12px;
-  box-shadow: var(--shadow-heavy);
-  z-index: 1001;
-  opacity: 0;
-  transform: translateY(-20px) scale(0.95);
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  border: 1px solid #e0e0e0;
-  overflow: hidden;
-  resize: both;
-  min-width: 320px;
-  min-height: 400px;
-  pointer-events: auto;
-}
-
+.floating-config-window.active,
 .floating-simulation-window.active {
   opacity: 1;
   transform: translateY(0) scale(1);
   pointer-events: auto;
 }
 
+.floating-config-window.active .window-content *,
+.floating-simulation-window.active .window-content * {
+  pointer-events: auto !important;
+}
+
+.floating-config-window.dragging,
 .floating-simulation-window.dragging {
   transition: none;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
   transform: scale(1.02);
   z-index: 1002;
+  user-select: none;
+}
+
+.floating-simulation-window {
+  width: 380px;
+  max-height: 80vh;
+  min-width: 320px;
+  min-height: 400px;
 }
 
 .window-header {
@@ -303,9 +285,9 @@ input:checked + .slider-switch:before {
   justify-content: center;
   font-size: 10px;
   color: white;
-  pointer-events: auto;
+  pointer-events: auto !important;
   position: relative;
-  z-index: 1;
+  z-index: 20;
 }
 
 .window-btn-close {
@@ -323,7 +305,7 @@ input:checked + .slider-switch:before {
   overflow-y: auto;
   position: relative;
   z-index: 1;
-  pointer-events: auto;
+  pointer-events: inherit;
 }
 
 .window-content::-webkit-scrollbar {
@@ -353,7 +335,8 @@ input:checked + .slider-switch:before {
   padding: 0;
   margin: -16px -16px 20px -16px;
   position: relative;
-  z-index: 2;
+  z-index: 10;
+  pointer-events: auto !important;
 }
 
 .config-tab {
@@ -372,8 +355,8 @@ input:checked + .slider-switch:before {
   font-size: 0.85rem;
   background-color: var(--light-gray);
   position: relative;
-  z-index: 1;
-  pointer-events: auto;
+  z-index: 10;
+  pointer-events: auto !important;
 }
 
 .config-tab:first-child {
@@ -462,9 +445,9 @@ input:checked + .slider-switch:before {
   outline: none;
   border-radius: 3px;
   transition: all var(--transition-normal);
-  pointer-events: auto;
+  pointer-events: auto !important;
   position: relative;
-  z-index: 1;
+  z-index: 5;
 }
 
 .config-slider::-webkit-slider-thumb {
@@ -517,9 +500,9 @@ input:checked + .slider-switch:before {
   opacity: 0;
   width: 0;
   height: 0;
-  pointer-events: auto;
+  pointer-events: auto !important;
   position: relative;
-  z-index: 1;
+  z-index: 5;
 }
 
 .config-switch-slider {
@@ -567,9 +550,9 @@ input:checked + .config-switch-slider:before {
   border-radius: 6px;
   cursor: pointer;
   transition: all var(--transition-normal);
-  pointer-events: auto;
+  pointer-events: auto !important;
   position: relative;
-  z-index: 1;
+  z-index: 5;
 }
 
 .config-color:hover {
@@ -593,9 +576,9 @@ input:checked + .config-switch-slider:before {
   color: #495057;
   min-width: 150px;
   transition: border-color var(--transition-normal);
-  pointer-events: auto;
+  pointer-events: auto !important;
   position: relative;
-  z-index: 1;
+  z-index: 5;
 }
 
 .config-select:focus {
@@ -613,9 +596,17 @@ input:checked + .config-switch-slider:before {
   flex-wrap: wrap;
 }
 
+.config-btn-primary,
+.config-btn-secondary,
+.config-btn-success {
+  flex: 1;
+  pointer-events: auto !important;
+  position: relative;
+  z-index: 5;
+}
+
 .config-btn-primary {
   background-color: var(--danger-color);
-  flex: 1;
 }
 
 .config-btn-primary:hover {
@@ -624,7 +615,6 @@ input:checked + .config-switch-slider:before {
 
 .config-btn-secondary {
   background-color: #6c757d;
-  flex: 1;
 }
 
 .config-btn-secondary:hover {
@@ -633,7 +623,6 @@ input:checked + .config-switch-slider:before {
 
 .config-btn-success {
   background-color: var(--success-color);
-  flex: 1;
 }
 
 .config-btn-success:hover {
@@ -826,6 +815,13 @@ input:checked + .config-switch-slider:before {
 
 .sim-object-item.selected .sim-object-name {
   color: var(--warning-color) !important;
+}
+
+.window-header,
+.window-content,
+.config-section,
+.config-row {
+  pointer-events: inherit;
 }
 
 @media (max-width: 992px) {

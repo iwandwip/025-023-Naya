@@ -105,6 +105,13 @@ function showFloatingWindow(windowType) {
     floatingConfigWindow.classList.add('active');
     const pos = windowStates.config.position;
     setWindowPosition(pos.x, pos.y, 'config');
+    
+    setTimeout(() => {
+      const configElements = floatingConfigWindow.querySelectorAll('input, select, button, .config-tab');
+      configElements.forEach(el => {
+        el.style.pointerEvents = 'auto';
+      });
+    }, 100);
   }
 }
 
@@ -113,11 +120,9 @@ function hideFloatingWindow(windowType) {
   
   if (windowType === 'simulation') {
     floatingSimulationWindow.classList.remove('active');
-    simulationToggle.checked = false;
-    isSimulationMode = false;
-    simulationStatus.textContent = "Real Detection Mode";
-    simulationStatus.style.color = "#27ae60";
-    socket.emit("toggle_simulation", { enabled: false });
+    if (typeof window.handleSimulationClose === 'function') {
+      window.handleSimulationClose();
+    }
   } else if (windowType === 'config') {
     floatingConfigWindow.classList.remove('active');
   }
@@ -131,12 +136,9 @@ function hideFloatingWindow(windowType) {
 
 function startDragging(e, windowType) {
   if (e.target.closest('.window-btn') || 
-      e.target.closest('input') || 
-      e.target.closest('select') || 
-      e.target.closest('button') ||
-      e.target.closest('.config-tab') ||
-      e.target.closest('.config-slider') ||
-      e.target.closest('.config-switch')) {
+      e.target.tagName === 'INPUT' || 
+      e.target.tagName === 'SELECT' || 
+      e.target.tagName === 'BUTTON') {
     return;
   }
   
@@ -158,7 +160,6 @@ function startDragging(e, windowType) {
   document.body.classList.add('no-select');
   
   e.preventDefault();
-  e.stopPropagation();
 }
 
 function doDrag(e) {
@@ -259,6 +260,25 @@ function initFloatingWindows() {
   floatingConfigWindow.addEventListener('click', (e) => {
     e.stopPropagation();
   });
+  
+  const configTabs = document.querySelectorAll('.config-tab');
+  configTabs.forEach(tab => {
+    tab.addEventListener('click', function(e) {
+      e.stopPropagation();
+      
+      configTabs.forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.config-tab-content').forEach(content => {
+        content.classList.remove('active');
+      });
+      
+      this.classList.add('active');
+      const tabName = this.getAttribute('data-config-tab');
+      const content = document.getElementById(tabName + 'ConfigTab');
+      if (content) {
+        content.classList.add('active');
+      }
+    });
+  });
 }
 
 function initTabs() {
@@ -339,3 +359,6 @@ document.addEventListener("DOMContentLoaded", function() {
   initFloatingWindows();
   initTabs();
 });
+
+window.showFloatingWindow = showFloatingWindow;
+window.hideFloatingWindow = hideFloatingWindow;
