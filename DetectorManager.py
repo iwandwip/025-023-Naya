@@ -75,6 +75,7 @@ class DetectorManager:
             if obj_id in self.simulated_objects:
                 del self.simulated_objects[obj_id]
                 self.objects_in_zone.pop(obj_id, None)
+                self.counted_objects.pop(obj_id, None)
                 return True
             return False
 
@@ -199,6 +200,7 @@ class DetectorManager:
             else:
                 if was_in_zone:
                     print(f"📤 Simulated object {label} left counting zone (ID: {obj_id})")
+                    self.counted_objects.pop(obj_id, None)
                 self.objects_in_zone[obj_id] = False
 
         return frame, detected_objects
@@ -258,6 +260,7 @@ class DetectorManager:
                     else:
                         if was_in_zone:
                             print(f"📤 Real object {label} left counting zone (ID: {obj_id})")
+                            self.counted_objects.pop(obj_id, None)
                         self.objects_in_zone[obj_id] = False
 
                 self.last_detections = current_detections
