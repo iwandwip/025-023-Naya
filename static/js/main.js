@@ -111,14 +111,16 @@ let isSimulationMode = false;
 let simulatedObjects = {};
 let selectedObjectId = null;
 
+let windowStates = {
+  simulation: { active: false, position: { x: 20, y: 20 } },
+  config: { active: false, position: { x: 20, y: 20 } }
+};
+
 let isDragging = false;
 let dragStartX = 0;
 let dragStartY = 0;
 let windowStartX = 0;
 let windowStartY = 0;
-let windowPosition = { x: 20, y: 20 };
-let configWindowPosition = { x: 20, y: 20 };
-let isDraggingConfig = false;
 let currentDragWindow = null;
 
 let defaultConfig = {
@@ -292,6 +294,34 @@ function applyPreset(preset) {
   applyConfigToUI();
 }
 
+function hideAllFloatingWindows() {
+  windowStates.simulation.active = false;
+  windowStates.config.active = false;
+  
+  floatingBackdrop.classList.remove('active');
+  floatingSimulationWindow.classList.remove('active');
+  floatingConfigWindow.classList.remove('active');
+  
+  document.body.classList.remove('no-select');
+}
+
+function showFloatingWindow(windowType) {
+  hideAllFloatingWindows();
+  
+  windowStates[windowType].active = true;
+  floatingBackdrop.classList.add('active');
+  
+  if (windowType === 'simulation') {
+    floatingSimulationWindow.classList.add('active');
+    const pos = windowStates.simulation.position;
+    setWindowPosition(pos.x, pos.y, 'simulation');
+  } else if (windowType === 'config') {
+    floatingConfigWindow.classList.add('active');
+    const pos = windowStates.config.position;
+    setWindowPosition(pos.x, pos.y, 'config');
+  }
+}
+
 function initFloatingWindows() {
   windowHeader.addEventListener('mousedown', (e) => startDragging(e, 'simulation'));
   configWindowHeader.addEventListener('mousedown', (e) => startDragging(e, 'config'));
@@ -304,14 +334,48 @@ function initFloatingWindows() {
   document.addEventListener('touchmove', handleTouchMove, { passive: false });
   document.addEventListener('touchend', handleTouchEnd);
   
-  closeFloatingWindow.addEventListener('click', hideFloatingWindow);
-  closeConfigWindow.addEventListener('click', hideConfigWindow);
+  closeFloatingWindow.addEventListener('click', (e) => {
+    e.stopPropagation();
+    hideFloatingWindow('simulation');
+  });
   
-  setWindowPosition(windowPosition.x, windowPosition.y, 'simulation');
-  setWindowPosition(configWindowPosition.x, configWindowPosition.y, 'config');
+  closeConfigWindow.addEventListener('click', (e) => {
+    e.stopPropagation();
+    hideFloatingWindow('config');
+  });
+  
+  floatingBackdrop.addEventListener('click', (e) => {
+    if (e.target === floatingBackdrop) {
+      hideAllFloatingWindows();
+    }
+  });
+}
+
+function hideFloatingWindow(windowType) {
+  windowStates[windowType].active = false;
+  
+  if (windowType === 'simulation') {
+    floatingSimulationWindow.classList.remove('active');
+    simulationToggle.checked = false;
+    isSimulationMode = false;
+    simulationStatus.textContent = "Real Detection Mode";
+    simulationStatus.style.color = "#27ae60";
+    socket.emit("toggle_simulation", { enabled: false });
+  } else if (windowType === 'config') {
+    floatingConfigWindow.classList.remove('active');
+  }
+  
+  const anyWindowActive = Object.values(windowStates).some(state => state.active);
+  if (!anyWindowActive) {
+    floatingBackdrop.classList.remove('active');
+  }
 }
 
 function startDragging(e, windowType) {
+  if (e.target.closest('.window-btn')) {
+    return;
+  }
+  
   isDragging = true;
   currentDragWindow = windowType;
   dragStartX = e.type === 'mousedown' ? e.clientX : e.touches[0].clientX;
@@ -326,6 +390,7 @@ function startDragging(e, windowType) {
   document.body.classList.add('no-select');
   
   e.preventDefault();
+  e.stopPropagation();
 }
 
 function doDrag(e) {
@@ -350,13 +415,8 @@ function stopDragging() {
   const window = currentDragWindow === 'simulation' ? floatingSimulationWindow : floatingConfigWindow;
   const rect = window.getBoundingClientRect();
   
-  if (currentDragWindow === 'simulation') {
-    windowPosition.x = rect.left;
-    windowPosition.y = rect.top;
-  } else {
-    configWindowPosition.x = rect.left;
-    configWindowPosition.y = rect.top;
-  }
+  windowStates[currentDragWindow].position.x = rect.left;
+  windowStates[currentDragWindow].position.y = rect.top;
   
   isDragging = false;
   currentDragWindow = null;
@@ -395,44 +455,11 @@ function setWindowPosition(x, y, windowType) {
   window.style.right = 'auto';
 }
 
-function showFloatingWindow() {
-  floatingBackdrop.classList.add('active');
-  floatingSimulationWindow.classList.add('active');
-  
-  const viewportWidth = window.innerWidth;
-  const defaultX = Math.max(20, viewportWidth - 400);
-  setWindowPosition(windowPosition.x || defaultX, windowPosition.y || 20, 'simulation');
-}
-
-function hideFloatingWindow() {
-  floatingBackdrop.classList.remove('active');
-  floatingSimulationWindow.classList.remove('active');
-  
-  simulationToggle.checked = false;
-  isSimulationMode = false;
-  simulationStatus.textContent = "Real Detection Mode";
-  simulationStatus.style.color = "#27ae60";
-  
-  socket.emit("toggle_simulation", { enabled: false });
-}
-
-function showConfigWindow() {
-  floatingBackdrop.classList.add('active');
-  floatingConfigWindow.classList.add('active');
-  
-  const viewportWidth = window.innerWidth;
-  const defaultX = Math.max(20, viewportWidth - 470);
-  setWindowPosition(configWindowPosition.x || defaultX, configWindowPosition.y || 20, 'config');
-}
-
-function hideConfigWindow() {
-  floatingBackdrop.classList.remove('active');
-  floatingConfigWindow.classList.remove('active');
-}
-
 function initConfigTabs() {
   configTabs.forEach(tab => {
-    tab.addEventListener('click', function() {
+    tab.addEventListener('click', function(e) {
+      e.stopPropagation();
+      
       configTabs.forEach(t => t.classList.remove('active'));
       configTabContents.forEach(content => content.classList.remove('active'));
       
@@ -536,9 +563,18 @@ function initConfigControls() {
     }
   });
 
-  saveConfigBtn.addEventListener('click', saveConfig);
-  resetConfigBtn.addEventListener('click', resetConfig);
-  applyConfigBtn.addEventListener('click', function() {
+  saveConfigBtn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    saveConfig();
+  });
+  
+  resetConfigBtn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    resetConfig();
+  });
+  
+  applyConfigBtn.addEventListener('click', function(e) {
+    e.stopPropagation();
     socket.emit('apply_full_config', currentConfig);
     showNotification("Configuration applied successfully");
   });
@@ -562,7 +598,7 @@ stopBtn.addEventListener("click", function () {
 });
 
 configButton.addEventListener("click", function() {
-  showConfigWindow();
+  showFloatingWindow('config');
 });
 
 simulationToggle.addEventListener("change", function() {
@@ -573,12 +609,12 @@ simulationToggle.addEventListener("change", function() {
   });
   
   if (isSimulationMode) {
-    showFloatingWindow();
+    showFloatingWindow('simulation');
     simulationStatus.textContent = "🎮 Simulation Mode";
     simulationStatus.style.color = "#e74c3c";
     showNotification("Simulation mode enabled");
   } else {
-    hideFloatingWindow();
+    hideFloatingWindow('simulation');
   }
 });
 
@@ -857,18 +893,14 @@ window.addEventListener("click", function(event) {
   if (event.target === checkoutSuccess) {
     checkoutSuccess.style.display = "none";
   }
-  if (event.target === floatingBackdrop) {
-    hideFloatingWindow();
-    hideConfigWindow();
-  }
 });
 
 window.addEventListener("resize", function() {
-  if (isSimulationMode) {
+  if (windowStates.simulation.active) {
     const rect = floatingSimulationWindow.getBoundingClientRect();
     setWindowPosition(rect.left, rect.top, 'simulation');
   }
-  if (floatingConfigWindow.classList.contains('active')) {
+  if (windowStates.config.active) {
     const rect = floatingConfigWindow.getBoundingClientRect();
     setWindowPosition(rect.left, rect.top, 'config');
   }
