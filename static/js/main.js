@@ -61,7 +61,10 @@ const cancelDeleteBtn = document.getElementById("cancelDeleteBtn");
 
 const simulationToggle = document.getElementById("simulationToggle");
 const simulationStatus = document.getElementById("simulationStatus");
-const simulationPanel = document.getElementById("simulationPanel");
+const floatingSimulationWindow = document.getElementById("floatingSimulationWindow");
+const floatingBackdrop = document.getElementById("floatingBackdrop");
+const windowHeader = document.getElementById("windowHeader");
+const closeFloatingWindow = document.getElementById("closeFloatingWindow");
 const addSimObjectBtn = document.getElementById("addSimObjectBtn");
 const simulatedObjectsList = document.getElementById("simulatedObjectsList");
 const testCountingBtn = document.getElementById("testCountingBtn");
@@ -76,6 +79,13 @@ let deleteItemInfo = null;
 let isSimulationMode = false;
 let simulatedObjects = {};
 let selectedObjectId = null;
+
+let isDragging = false;
+let dragStartX = 0;
+let dragStartY = 0;
+let windowStartX = 0;
+let windowStartY = 0;
+let windowPosition = { x: 20, y: 20 };
 
 function showNotification(message) {
   notificationText.textContent = message;
@@ -117,6 +127,114 @@ function showConfirmDelete(type, name, callback) {
     confirmDeleteModal.style.display = "none";
     callback();
   };
+}
+
+function initFloatingWindow() {
+  windowHeader.addEventListener('mousedown', startDragging);
+  document.addEventListener('mousemove', doDrag);
+  document.addEventListener('mouseup', stopDragging);
+  
+  windowHeader.addEventListener('touchstart', handleTouchStart, { passive: false });
+  document.addEventListener('touchmove', handleTouchMove, { passive: false });
+  document.addEventListener('touchend', handleTouchEnd);
+  
+  closeFloatingWindow.addEventListener('click', hideFloatingWindow);
+  
+  setWindowPosition(windowPosition.x, windowPosition.y);
+}
+
+function startDragging(e) {
+  isDragging = true;
+  dragStartX = e.type === 'mousedown' ? e.clientX : e.touches[0].clientX;
+  dragStartY = e.type === 'mousedown' ? e.clientY : e.touches[0].clientY;
+  
+  const rect = floatingSimulationWindow.getBoundingClientRect();
+  windowStartX = rect.left;
+  windowStartY = rect.top;
+  
+  floatingSimulationWindow.classList.add('dragging');
+  document.body.classList.add('no-select');
+  
+  e.preventDefault();
+}
+
+function doDrag(e) {
+  if (!isDragging) return;
+  
+  const clientX = e.type === 'mousemove' ? e.clientX : e.touches[0].clientX;
+  const clientY = e.type === 'mousemove' ? e.clientY : e.touches[0].clientY;
+  
+  const deltaX = clientX - dragStartX;
+  const deltaY = clientY - dragStartY;
+  
+  const newX = windowStartX + deltaX;
+  const newY = windowStartY + deltaY;
+  
+  setWindowPosition(newX, newY);
+  e.preventDefault();
+}
+
+function stopDragging() {
+  if (!isDragging) return;
+  
+  isDragging = false;
+  floatingSimulationWindow.classList.remove('dragging');
+  document.body.classList.remove('no-select');
+  
+  const rect = floatingSimulationWindow.getBoundingClientRect();
+  windowPosition.x = rect.left;
+  windowPosition.y = rect.top;
+}
+
+function handleTouchStart(e) {
+  startDragging(e);
+}
+
+function handleTouchMove(e) {
+  doDrag(e);
+}
+
+function handleTouchEnd(e) {
+  stopDragging();
+}
+
+function setWindowPosition(x, y) {
+  const windowRect = floatingSimulationWindow.getBoundingClientRect();
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  
+  const minX = 10;
+  const minY = 10;
+  const maxX = viewportWidth - windowRect.width - 10;
+  const maxY = viewportHeight - windowRect.height - 10;
+  
+  const clampedX = Math.max(minX, Math.min(maxX, x));
+  const clampedY = Math.max(minY, Math.min(maxY, y));
+  
+  floatingSimulationWindow.style.left = clampedX + 'px';
+  floatingSimulationWindow.style.top = clampedY + 'px';
+  floatingSimulationWindow.style.right = 'auto';
+}
+
+function showFloatingWindow() {
+  floatingBackdrop.classList.add('active');
+  floatingSimulationWindow.classList.add('active');
+  
+  const viewportWidth = window.innerWidth;
+  const defaultX = Math.max(20, viewportWidth - 400);
+  setWindowPosition(windowPosition.x || defaultX, windowPosition.y || 20);
+}
+
+function hideFloatingWindow() {
+  floatingBackdrop.classList.remove('active');
+  floatingSimulationWindow.classList.remove('active');
+  
+  simulationToggle.checked = false;
+  isSimulationMode = false;
+  simulationStatus.textContent = "Real Detection Mode";
+  simulationStatus.style.color = "#27ae60";
+  
+  socket.emit("toggle_simulation", { enabled: false });
 }
 
 startBtn.addEventListener("click", function () {
@@ -165,15 +283,12 @@ simulationToggle.addEventListener("change", function() {
   });
   
   if (isSimulationMode) {
-    simulationPanel.style.display = "block";
+    showFloatingWindow();
     simulationStatus.textContent = "🎮 Simulation Mode";
     simulationStatus.style.color = "#e74c3c";
     showNotification("Simulation mode enabled");
   } else {
-    simulationPanel.style.display = "none";
-    simulationStatus.textContent = "📹 Real Detection Mode";
-    simulationStatus.style.color = "#27ae60";
-    showNotification("Real detection mode enabled");
+    hideFloatingWindow();
   }
 });
 
@@ -451,6 +566,16 @@ window.addEventListener("click", function(event) {
   }
   if (event.target === checkoutSuccess) {
     checkoutSuccess.style.display = "none";
+  }
+  if (event.target === floatingBackdrop) {
+    hideFloatingWindow();
+  }
+});
+
+window.addEventListener("resize", function() {
+  if (isSimulationMode) {
+    const rect = floatingSimulationWindow.getBoundingClientRect();
+    setWindowPosition(rect.left, rect.top);
   }
 });
 
@@ -915,4 +1040,5 @@ function setDefaultDates() {
 document.addEventListener("DOMContentLoaded", function() {
   setDefaultDates();
   socket.emit("get_simulated_objects");
+  initFloatingWindow();
 });
