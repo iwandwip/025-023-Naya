@@ -2,6 +2,8 @@ import cv2
 import time
 import threading
 import numpy as np
+import json
+import os
 
 
 class DetectorManager:
@@ -23,9 +25,54 @@ class DetectorManager:
         self.simulated_objects = {}
         self.next_sim_id = 1
 
+        self.config = {
+            'detection': {
+                'zoneStart': 70,
+                'zoneWidth': 20,
+                'showZone': True,
+                'threshold': 0.5,
+                'autoCount': True
+            },
+            'visual': {
+                'showBoxes': True,
+                'showLabels': True,
+                'showConfidence': True,
+                'zoneColor': '#ff0000',
+                'boxColor': '#00ff00',
+                'zoneOpacity': 0.2
+            },
+            'advanced': {
+                'resolution': '640x480',
+                'frameRate': 30,
+                'model': 'yolov5s',
+                'processingSpeed': 'balanced',
+                'preset': 'retail'
+            }
+        }
+
+        self.presets = {
+            'retail': {
+                'detection': {'threshold': 0.7, 'autoCount': True},
+                'visual': {'showBoxes': True, 'showLabels': True, 'showConfidence': False}
+            },
+            'demo': {
+                'detection': {'threshold': 0.5, 'autoCount': True},
+                'visual': {'showBoxes': True, 'showLabels': True, 'showConfidence': True}
+            },
+            'debug': {
+                'detection': {'threshold': 0.3, 'autoCount': False},
+                'visual': {'showBoxes': True, 'showLabels': True, 'showConfidence': True}
+            }
+        }
+
+        self.config_file = 'detection_config.json'
+        self.load_config()
+
     def set_zone_parameters(self, start_percent, width_percent):
         self.zone_start_percent = start_percent
         self.zone_width_percent = width_percent
+        self.config['detection']['zoneStart'] = start_percent
+        self.config['detection']['zoneWidth'] = width_percent
 
     def toggle_simulation_mode(self, enabled):
         with self.lock:
@@ -93,6 +140,152 @@ class DetectorManager:
     def stop_scanning(self):
         with self.lock:
             self.is_scanning = False
+
+    def apply_detection_config(self, config):
+        try:
+            with self.lock:
+                self.config['detection'].update(config)
+
+                if 'zoneStart' in config:
+                    self.zone_start_percent = config['zoneStart']
+                if 'zoneWidth' in config:
+                    self.zone_width_percent = config['zoneWidth']
+
+                self.detector.set_detection_threshold(config.get('threshold', 0.5))
+                self.detector.set_auto_count(config.get('autoCount', True))
+
+                return True
+        except Exception as e:
+            print(f"Error applying detection config: {e}")
+            return False
+
+    def apply_visual_config(self, config):
+        try:
+            with self.lock:
+                self.config['visual'].update(config)
+
+                self.detector.set_show_boxes(config.get('showBoxes', True))
+                self.detector.set_show_labels(config.get('showLabels', True))
+                self.detector.set_show_confidence(config.get('showConfidence', True))
+                self.detector.set_zone_color(config.get('zoneColor', '#ff0000'))
+                self.detector.set_box_color(config.get('boxColor', '#00ff00'))
+                self.detector.set_zone_opacity(config.get('zoneOpacity', 0.2))
+
+                return True
+        except Exception as e:
+            print(f"Error applying visual config: {e}")
+            return False
+
+    def apply_advanced_config(self, config):
+        try:
+            with self.lock:
+                self.config['advanced'].update(config)
+
+                if 'resolution' in config:
+                    self.detector.set_resolution(config['resolution'])
+                if 'frameRate' in config:
+                    self.detector.set_frame_rate(config['frameRate'])
+                if 'model' in config:
+                    self.detector.set_model(config['model'])
+                if 'processingSpeed' in config:
+                    self.detector.set_processing_speed(config['processingSpeed'])
+
+                return True
+        except Exception as e:
+            print(f"Error applying advanced config: {e}")
+            return False
+
+    def apply_preset_config(self, preset_name):
+        try:
+            if preset_name in self.presets:
+                preset = self.presets[preset_name]
+
+                if 'detection' in preset:
+                    self.apply_detection_config(preset['detection'])
+                if 'visual' in preset:
+                    self.apply_visual_config(preset['visual'])
+
+                self.config['advanced']['preset'] = preset_name
+                return True
+            return False
+        except Exception as e:
+            print(f"Error applying preset config: {e}")
+            return False
+
+    def apply_full_config(self, config):
+        try:
+            success = True
+            if 'detection' in config:
+                success &= self.apply_detection_config(config['detection'])
+            if 'visual' in config:
+                success &= self.apply_visual_config(config['visual'])
+            if 'advanced' in config:
+                success &= self.apply_advanced_config(config['advanced'])
+            return success
+        except Exception as e:
+            print(f"Error applying full config: {e}")
+            return False
+
+    def save_config(self, config=None):
+        try:
+            config_to_save = config if config else self.config
+            with open(self.config_file, 'w') as f:
+                json.dump(config_to_save, f, indent=2)
+            return True
+        except Exception as e:
+            print(f"Error saving config: {e}")
+            return False
+
+    def load_config(self):
+        try:
+            if os.path.exists(self.config_file):
+                with open(self.config_file, 'r') as f:
+                    loaded_config = json.load(f)
+                    self.config.update(loaded_config)
+                    self.apply_full_config(self.config)
+                return self.config
+            return None
+        except Exception as e:
+            print(f"Error loading config: {e}")
+            return None
+
+    def reset_config(self):
+        try:
+            default_config = {
+                'detection': {
+                    'zoneStart': 70,
+                    'zoneWidth': 20,
+                    'showZone': True,
+                    'threshold': 0.5,
+                    'autoCount': True
+                },
+                'visual': {
+                    'showBoxes': True,
+                    'showLabels': True,
+                    'showConfidence': True,
+                    'zoneColor': '#ff0000',
+                    'boxColor': '#00ff00',
+                    'zoneOpacity': 0.2
+                },
+                'advanced': {
+                    'resolution': '640x480',
+                    'frameRate': 30,
+                    'model': 'yolov5s',
+                    'processingSpeed': 'balanced',
+                    'preset': 'retail'
+                }
+            }
+
+            self.config = default_config
+            self.apply_full_config(self.config)
+            self.save_config()
+            return True
+        except Exception as e:
+            print(f"Error resetting config: {e}")
+            return False
+
+    def get_current_config(self):
+        return self.config.copy()
 
     def _calculate_iou(self, box1, box2):
         x1_1, y1_1, x2_1, y2_1 = box1
@@ -162,19 +355,23 @@ class DetectorManager:
 
             is_valid_product = label in self.product_manager.get_products()
 
-            color = (0, 255, 0) if is_valid_product else (0, 165, 255)
-            cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+            if self.config['visual']['showBoxes']:
+                color = self._hex_to_bgr(self.config['visual']['boxColor']) if is_valid_product else (0, 165, 255)
+                cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
 
-            text = f"[SIM] {label}: 1.00"
-            text_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)[0]
+            if self.config['visual']['showLabels']:
+                confidence_text = ": 1.00" if self.config['visual']['showConfidence'] else ""
+                text = f"[SIM] {label}{confidence_text}"
+                text_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)[0]
 
-            text_bg_x1 = x1
-            text_bg_y1 = y1 - 25 if y1 - 25 > 0 else 0
-            text_bg_x2 = x1 + text_size[0] + 10
-            text_bg_y2 = y1
+                text_bg_x1 = x1
+                text_bg_y1 = y1 - 25 if y1 - 25 > 0 else 0
+                text_bg_x2 = x1 + text_size[0] + 10
+                text_bg_y2 = y1
 
-            cv2.rectangle(frame, (text_bg_x1, text_bg_y1), (text_bg_x2, text_bg_y2), color, -1)
-            cv2.putText(frame, text, (x1 + 5, y1 - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
+                color = self._hex_to_bgr(self.config['visual']['boxColor']) if is_valid_product else (0, 165, 255)
+                cv2.rectangle(frame, (text_bg_x1, text_bg_y1), (text_bg_x2, text_bg_y2), color, -1)
+                cv2.putText(frame, text, (x1 + 5, y1 - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
 
             if is_valid_product:
                 detected_objects.append({
@@ -190,7 +387,7 @@ class DetectorManager:
             already_counted = self.counted_objects.get(obj_id, False)
 
             if in_zone:
-                if not was_in_zone and not already_counted and is_valid_product:
+                if not was_in_zone and not already_counted and is_valid_product and self.config['detection']['autoCount']:
                     self.detector.add_to_cart(label)
                     self.counted_objects[obj_id] = True
                     print(f"🎯 SIMULATED COUNT: {label} (ID: {obj_id})")
@@ -205,13 +402,48 @@ class DetectorManager:
 
         return frame, detected_objects
 
+    def _hex_to_bgr(self, hex_color):
+        hex_color = hex_color.lstrip('#')
+        return tuple(int(hex_color[i:i+2], 16) for i in (4, 2, 0))
+
+    def _draw_zone_overlay(self, frame, frame_width, frame_height):
+        if not self.config['detection']['showZone']:
+            return frame
+
+        counting_zone_x = int(frame_width * self.zone_start_percent / 100)
+        counting_zone_width = int(frame_width * self.zone_width_percent / 100)
+
+        zone_start = (counting_zone_x, 0)
+        zone_end = (counting_zone_x, frame_height)
+        zone_end_right = (counting_zone_x + counting_zone_width, 0)
+        zone_start_right = (counting_zone_x + counting_zone_width, frame_height)
+
+        overlay = frame.copy()
+        zone_color = self._hex_to_bgr(self.config['visual']['zoneColor'])
+        cv2.rectangle(overlay, (counting_zone_x, 0), (counting_zone_x + counting_zone_width, frame_height), zone_color, -1)
+
+        opacity = self.config['visual']['zoneOpacity']
+        cv2.addWeighted(overlay, opacity, frame, 1 - opacity, 0, frame)
+
+        cv2.line(frame, zone_start, zone_end, zone_color, 2)
+        cv2.line(frame, zone_end_right, zone_start_right, zone_color, 2)
+
+        zone_text = "COUNTING ZONE"
+        text_size = cv2.getTextSize(zone_text, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)[0]
+        text_x = counting_zone_x + (counting_zone_width - text_size[0]) // 2
+        text_y = 30
+
+        cv2.rectangle(frame, (text_x - 5, text_y - text_size[1] - 5),
+                      (text_x + text_size[0] + 5, text_y + 5), zone_color, -1)
+        cv2.putText(frame, zone_text, (text_x, text_y),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+
+        return frame
+
     def process_frame(self, frame, frame_width, frame_height):
         if frame is None:
             blank = np.zeros((480, 640, 3), dtype=np.uint8)
             return blank
-
-        counting_zone_x = int(frame_width * self.zone_start_percent / 100)
-        counting_zone_width = int(frame_width * self.zone_width_percent / 100)
 
         if self.is_scanning:
             self.detector.product_catalog = self.product_manager.get_products()
@@ -223,6 +455,8 @@ class DetectorManager:
 
                 current_time = time.time()
                 current_detections = {}
+                counting_zone_x = int(frame_width * self.zone_start_percent / 100)
+                counting_zone_width = int(frame_width * self.zone_width_percent / 100)
 
                 for obj in detected_objects:
                     label = obj['label']
@@ -251,7 +485,7 @@ class DetectorManager:
                     already_counted = self.counted_objects.get(obj_id, False)
 
                     if in_zone:
-                        if not was_in_zone and not already_counted:
+                        if not was_in_zone and not already_counted and self.config['detection']['autoCount']:
                             self.detector.add_to_cart(label)
                             self.counted_objects[obj_id] = True
                             print(f"🎯 REAL COUNT: {label} (ID: {obj_id})")
@@ -272,27 +506,7 @@ class DetectorManager:
             if self.simulation_mode:
                 self._process_simulated_objects(processed_frame, frame_width, frame_height)
 
-        zone_start = (counting_zone_x, 0)
-        zone_end = (counting_zone_x, frame_height)
-        zone_end_right = (counting_zone_x + counting_zone_width, 0)
-        zone_start_right = (counting_zone_x + counting_zone_width, frame_height)
-
-        overlay = processed_frame.copy()
-        cv2.rectangle(overlay, (counting_zone_x, 0), (counting_zone_x + counting_zone_width, frame_height), (0, 0, 255), -1)
-        cv2.addWeighted(overlay, 0.2, processed_frame, 0.8, 0, processed_frame)
-
-        cv2.line(processed_frame, zone_start, zone_end, (0, 0, 255), 2)
-        cv2.line(processed_frame, zone_end_right, zone_start_right, (0, 0, 255), 2)
-
-        zone_text = "COUNTING ZONE"
-        text_size = cv2.getTextSize(zone_text, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)[0]
-        text_x = counting_zone_x + (counting_zone_width - text_size[0]) // 2
-        text_y = 30
-
-        cv2.rectangle(processed_frame, (text_x - 5, text_y - text_size[1] - 5),
-                      (text_x + text_size[0] + 5, text_y + 5), (0, 0, 255), -1)
-        cv2.putText(processed_frame, zone_text, (text_x, text_y),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+        processed_frame = self._draw_zone_overlay(processed_frame, frame_width, frame_height)
 
         mode_text = "🎮 SIMULATION MODE" if self.simulation_mode else "📹 REAL MODE"
         settings_text = f"{mode_text} | Zone: {self.zone_start_percent}%, Width: {self.zone_width_percent}%"
