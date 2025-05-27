@@ -822,3 +822,245 @@ h1 {
     font-size: 0.9rem;
   }
 }
+
+.simulation-controls {
+  margin-top: 20px;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #e74c3c;
+}
+
+.simulation-controls h3 {
+  margin-top: 0;
+  color: #2c3e50;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.simulation-toggle {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 15px;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 60px;
+  height: 34px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider-switch {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: .4s;
+  border-radius: 34px;
+}
+
+.slider-switch:before {
+  position: absolute;
+  content: "";
+  height: 26px;
+  width: 26px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: .4s;
+  border-radius: 50%;
+}
+
+input:checked + .slider-switch {
+  background-color: #e74c3c;
+}
+
+input:checked + .slider-switch:before {
+  transform: translateX(26px);
+}
+
+.simulation-panel {
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.sim-section {
+  margin-bottom: 20px;
+  padding: 15px;
+  background-color: white;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+}
+
+.sim-section h4 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: #34495e;
+}
+
+.sim-form .form-row {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 10px;
+  align-items: end;
+}
+
+.sim-form .form-group {
+  flex: 1;
+}
+
+.sim-form .form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 600;
+  color: #555;
+}
+
+.sim-form input, .sim-form select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.btn-sim {
+  background-color: #e74c3c;
+  white-space: nowrap;
+}
+
+.btn-sim:hover {
+  background-color: #c0392b;
+}
+
+.btn-test {
+  background-color: #f39c12;
+}
+
+.btn-test:hover {
+  background-color: #e67e22;
+}
+
+.btn-danger {
+  background-color: #e74c3c;
+}
+
+.btn-danger:hover {
+  background-color: #c0392b;
+}
+
+.sim-objects-list {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.sim-object-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  margin-bottom: 8px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  border: 1px solid #e9ecef;
+}
+
+.sim-object-info {
+  flex: 1;
+}
+
+.sim-object-name {
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.sim-object-details {
+  font-size: 0.8rem;
+  color: #7f8c8d;
+}
+
+.sim-object-controls {
+  display: flex;
+  gap: 5px;
+}
+
+.sim-control-btn {
+  padding: 4px 8px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.2s ease;
+}
+
+.move-btn {
+  background-color: #3498db;
+  color: white;
+}
+
+.move-btn:hover {
+  background-color: #2980b9;
+}
+
+.delete-btn {
+  background-color: #e74c3c;
+  color: white;
+}
+
+.delete-btn:hover {
+  background-color: #c0392b;
+}
+
+.quick-tests {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.no-objects {
+  text-align: center;
+  color: #7f8c8d;
+  font-style: italic;
+  padding: 20px;
+}
+
+.in-counting-zone {
+  border-left: 4px solid #f39c12 !important;
+  background-color: #fff3cd !important;
+}
+
+.sim-object-item.selected {
+  border: 2px solid #f39c12 !important;
+  background-color: #fff3cd !important;
+}
+
+.sim-object-item.selected .sim-object-name {
+  color: #f39c12 !important;
+}
+
+@media (max-width: 576px) {
+  .sim-form .form-row {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .quick-tests {
+    flex-direction: column;
+  }
+}

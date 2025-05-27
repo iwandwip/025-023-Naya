@@ -242,6 +242,145 @@ class SelfCheckoutApp:
                     'message': 'Failed to delete transaction'
                 })
 
+        @self.socketio.on('toggle_simulation')
+        def handle_toggle_simulation(data):
+            enabled = data.get('enabled', False)
+            self.detector_manager.toggle_simulation_mode(enabled)
+            self.socketio.emit('simulation_toggled', {
+                'enabled': enabled,
+                'message': 'Simulation mode enabled' if enabled else 'Real detection mode enabled'
+            })
+            print(f"Simulation mode: {'ON' if enabled else 'OFF'}")
+
+        @self.socketio.on('add_simulated_object')
+        def handle_add_simulated_object(data):
+            label = data.get('label', 'person')
+            x = int(data.get('x', 100))
+            y = int(data.get('y', 100))
+            width = int(data.get('width', 100))
+            height = int(data.get('height', 100))
+
+            obj_id = self.detector_manager.add_simulated_object(label, x, y, width, height)
+
+            self.socketio.emit('simulated_object_added', {
+                'success': True,
+                'obj_id': obj_id,
+                'label': label,
+                'x': x,
+                'y': y,
+                'width': width,
+                'height': height
+            })
+            print(f"Added simulated object: {label} at ({x}, {y})")
+
+        @self.socketio.on('update_simulated_object')
+        def handle_update_simulated_object(data):
+            obj_id = data.get('obj_id')
+            x = data.get('x')
+            y = data.get('y')
+            width = data.get('width')
+            height = data.get('height')
+            label = data.get('label')
+
+            success = self.detector_manager.update_simulated_object(
+                obj_id, x=x, y=y, width=width, height=height, label=label
+            )
+
+            self.socketio.emit('simulated_object_updated', {
+                'success': success,
+                'obj_id': obj_id
+            })
+
+            if success:
+                print(f"Updated simulated object {obj_id}")
+
+        @self.socketio.on('remove_simulated_object')
+        def handle_remove_simulated_object(data):
+            obj_id = data.get('obj_id')
+            success = self.detector_manager.remove_simulated_object(obj_id)
+
+            self.socketio.emit('simulated_object_removed', {
+                'success': success,
+                'obj_id': obj_id
+            })
+
+            if success:
+                print(f"Removed simulated object {obj_id}")
+
+        @self.socketio.on('get_simulated_objects')
+        def handle_get_simulated_objects():
+            objects = self.detector_manager.get_simulated_objects()
+            self.socketio.emit('simulated_objects_list', objects)
+
+        @self.socketio.on('move_simulated_object')
+        def handle_move_simulated_object(data):
+            obj_id = data.get('obj_id')
+            direction = data.get('direction')
+            step = data.get('step', 10)
+
+            objects = self.detector_manager.get_simulated_objects()
+            if obj_id in objects:
+                obj = objects[obj_id]
+                x, y = obj['x'], obj['y']
+
+                if direction == 'left':
+                    x = max(0, x - step)
+                elif direction == 'right':
+                    x = min(600, x + step)
+                elif direction == 'up':
+                    y = max(0, y - step)
+                elif direction == 'down':
+                    y = min(400, y + step)
+
+                self.detector_manager.update_simulated_object(obj_id, x=x, y=y)
+
+                self.socketio.emit('simulated_object_moved', {
+                    'success': True,
+                    'obj_id': obj_id,
+                    'x': x,
+                    'y': y
+                })
+
+        @self.socketio.on('preset_move_to_zone')
+        def handle_preset_move_to_zone(data):
+            obj_id = data.get('obj_id')
+
+            frame_width = 640
+            zone_start_percent = self.detector_manager.zone_start_percent
+            zone_width_percent = self.detector_manager.zone_width_percent
+
+            counting_zone_x = int(frame_width * zone_start_percent / 100)
+            counting_zone_width = int(frame_width * zone_width_percent / 100)
+            zone_center_x = counting_zone_x + (counting_zone_width // 2)
+
+            y_pos = 150
+
+            success = self.detector_manager.update_simulated_object(
+                obj_id, x=zone_center_x - 50, y=y_pos
+            )
+
+            self.socketio.emit('simulated_object_moved_to_zone', {
+                'success': success,
+                'obj_id': obj_id,
+                'x': zone_center_x - 50,
+                'y': y_pos
+            })
+
+            if success:
+                print(f"Moved simulated object {obj_id} to counting zone")
+
+        @self.socketio.on('simulate_conveyor_movement')
+        def handle_simulate_conveyor_movement(data):
+            obj_id = data.get('obj_id')
+            speed = data.get('speed', 5)
+
+            self.socketio.emit('conveyor_simulation_started', {
+                'obj_id': obj_id,
+                'speed': speed
+            })
+
+            print(f"Started conveyor simulation for {obj_id}")
+
     def processing_loop(self):
         try:
             while self.is_processing:

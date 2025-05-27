@@ -59,12 +59,23 @@ const confirmDeleteText = document.getElementById("confirmDeleteText");
 const confirmDeleteBtn = document.getElementById("confirmDeleteBtn");
 const cancelDeleteBtn = document.getElementById("cancelDeleteBtn");
 
+const simulationToggle = document.getElementById("simulationToggle");
+const simulationStatus = document.getElementById("simulationStatus");
+const simulationPanel = document.getElementById("simulationPanel");
+const addSimObjectBtn = document.getElementById("addSimObjectBtn");
+const simulatedObjectsList = document.getElementById("simulatedObjectsList");
+const testCountingBtn = document.getElementById("testCountingBtn");
+const clearSimObjectsBtn = document.getElementById("clearSimObjectsBtn");
+
 let currentTotal = 0;
 let products = {};
 let currentEditingProduct = null;
 let transactions = [];
 let currentTransaction = null;
 let deleteItemInfo = null;
+let isSimulationMode = false;
+let simulatedObjects = {};
+let selectedObjectId = null;
 
 function showNotification(message) {
   notificationText.textContent = message;
@@ -145,6 +156,189 @@ zoneWidthSlider.oninput = function () {
     zone_width: parseInt(this.value),
   });
 };
+
+simulationToggle.addEventListener("change", function() {
+  isSimulationMode = this.checked;
+  
+  socket.emit("toggle_simulation", {
+    enabled: isSimulationMode
+  });
+  
+  if (isSimulationMode) {
+    simulationPanel.style.display = "block";
+    simulationStatus.textContent = "🎮 Simulation Mode";
+    simulationStatus.style.color = "#e74c3c";
+    showNotification("Simulation mode enabled");
+  } else {
+    simulationPanel.style.display = "none";
+    simulationStatus.textContent = "📹 Real Detection Mode";
+    simulationStatus.style.color = "#27ae60";
+    showNotification("Real detection mode enabled");
+  }
+});
+
+addSimObjectBtn.addEventListener("click", function() {
+  const label = document.getElementById("simLabel").value;
+  const x = parseInt(document.getElementById("simX").value);
+  const y = parseInt(document.getElementById("simY").value);
+  const width = parseInt(document.getElementById("simWidth").value);
+  const height = parseInt(document.getElementById("simHeight").value);
+  
+  if (!label || isNaN(x) || isNaN(y) || isNaN(width) || isNaN(height)) {
+    alert("Please fill all fields with valid values");
+    return;
+  }
+  
+  socket.emit("add_simulated_object", {
+    label: label,
+    x: x,
+    y: y,
+    width: width,
+    height: height
+  });
+});
+
+testCountingBtn.addEventListener("click", function() {
+  if (selectedObjectId) {
+    socket.emit("preset_move_to_zone", {
+      obj_id: selectedObjectId
+    });
+  } else {
+    alert("Please select an object first");
+  }
+});
+
+clearSimObjectsBtn.addEventListener("click", function() {
+  if (Object.keys(simulatedObjects).length === 0) {
+    alert("No simulated objects to clear");
+    return;
+  }
+  
+  if (confirm("Are you sure you want to remove all simulated objects?")) {
+    for (const objId in simulatedObjects) {
+      socket.emit("remove_simulated_object", { obj_id: objId });
+    }
+  }
+});
+
+function renderSimulatedObjectsList() {
+  simulatedObjectsList.innerHTML = "";
+  
+  if (Object.keys(simulatedObjects).length === 0) {
+    const noObjects = document.createElement("div");
+    noObjects.className = "no-objects";
+    noObjects.textContent = "No simulated objects";
+    simulatedObjectsList.appendChild(noObjects);
+    testCountingBtn.disabled = true;
+    selectedObjectId = null;
+    return;
+  }
+  
+  testCountingBtn.disabled = false;
+  
+  for (const [objId, objData] of Object.entries(simulatedObjects)) {
+    const item = document.createElement("div");
+    item.className = "sim-object-item";
+    item.setAttribute("data-obj-id", objId);
+    
+    const info = document.createElement("div");
+    info.className = "sim-object-info";
+    
+    const name = document.createElement("div");
+    name.className = "sim-object-name";
+    name.textContent = `${objData.label} (${objId})`;
+    
+    const details = document.createElement("div");
+    details.className = "sim-object-details";
+    details.textContent = `Position: (${objData.x}, ${objData.y}) | Size: ${objData.width}x${objData.height}`;
+    
+    info.appendChild(name);
+    info.appendChild(details);
+    
+    const controls = document.createElement("div");
+    controls.className = "sim-object-controls";
+    
+    const moveButtons = [
+      { icon: "fas fa-arrow-up", direction: "up", title: "Move Up" },
+      { icon: "fas fa-arrow-down", direction: "down", title: "Move Down" },
+      { icon: "fas fa-arrow-left", direction: "left", title: "Move Left" },
+      { icon: "fas fa-arrow-right", direction: "right", title: "Move Right" }
+    ];
+    
+    moveButtons.forEach(btn => {
+      const moveBtn = document.createElement("button");
+      moveBtn.className = "sim-control-btn move-btn";
+      moveBtn.innerHTML = `<i class="${btn.icon}"></i>`;
+      moveBtn.title = btn.title;
+      moveBtn.addEventListener("click", function() {
+        socket.emit("move_simulated_object", {
+          obj_id: objId,
+          direction: btn.direction,
+          step: 15
+        });
+      });
+      controls.appendChild(moveBtn);
+    });
+    
+    const selectBtn = document.createElement("button");
+    selectBtn.className = "sim-control-btn move-btn";
+    selectBtn.innerHTML = '<i class="fas fa-crosshairs"></i>';
+    selectBtn.title = "Select for testing";
+    selectBtn.addEventListener("click", function() {
+      selectedObjectId = objId;
+      
+      document.querySelectorAll(".sim-object-item").forEach(item => {
+        item.classList.remove("selected");
+      });
+      item.classList.add("selected");
+      
+      showNotification(`Selected ${objData.label} for testing`);
+    });
+    controls.appendChild(selectBtn);
+    
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "sim-control-btn delete-btn";
+    deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+    deleteBtn.title = "Delete object";
+    deleteBtn.addEventListener("click", function() {
+      if (confirm(`Delete simulated ${objData.label}?`)) {
+        socket.emit("remove_simulated_object", { obj_id: objId });
+      }
+    });
+    controls.appendChild(deleteBtn);
+    
+    item.appendChild(info);
+    item.appendChild(controls);
+    simulatedObjectsList.appendChild(item);
+  }
+}
+
+document.addEventListener("keydown", function(event) {
+  if (!isSimulationMode || !selectedObjectId) return;
+  
+  if (event.target.tagName === "INPUT" || event.target.tagName === "TEXTAREA") return;
+  
+  const keyMap = {
+    "ArrowUp": "up",
+    "ArrowDown": "down", 
+    "ArrowLeft": "left",
+    "ArrowRight": "right"
+  };
+  
+  if (keyMap[event.key]) {
+    event.preventDefault();
+    socket.emit("move_simulated_object", {
+      obj_id: selectedObjectId,
+      direction: keyMap[event.key],
+      step: event.shiftKey ? 5 : 15
+    });
+  }
+  
+  if (event.key === " " || event.key === "Spacebar") {
+    event.preventDefault();
+    socket.emit("preset_move_to_zone", { obj_id: selectedObjectId });
+  }
+});
 
 socket.on("cart_update", function (data) {
   updateCart(data.cart, data.total);
@@ -637,6 +831,71 @@ socket.on("disconnect", function() {
   console.log("Disconnected from server");
 });
 
+socket.on("simulation_toggled", function(data) {
+  console.log("Simulation mode:", data.enabled ? "ON" : "OFF");
+});
+
+socket.on("simulated_object_added", function(data) {
+  if (data.success) {
+    simulatedObjects[data.obj_id] = {
+      label: data.label,
+      x: data.x,
+      y: data.y,
+      width: data.width,
+      height: data.height
+    };
+    renderSimulatedObjectsList();
+    showNotification(`Added simulated ${data.label}`);
+    
+    selectedObjectId = data.obj_id;
+    setTimeout(() => {
+      const item = document.querySelector(`[data-obj-id="${data.obj_id}"]`);
+      if (item) item.classList.add("selected");
+    }, 100);
+  }
+});
+
+socket.on("simulated_object_updated", function(data) {
+  if (data.success) {
+    socket.emit("get_simulated_objects");
+  }
+});
+
+socket.on("simulated_object_removed", function(data) {
+  if (data.success) {
+    delete simulatedObjects[data.obj_id];
+    if (selectedObjectId === data.obj_id) {
+      selectedObjectId = null;
+    }
+    renderSimulatedObjectsList();
+    showNotification("Simulated object removed");
+  }
+});
+
+socket.on("simulated_object_moved", function(data) {
+  if (data.success && simulatedObjects[data.obj_id]) {
+    simulatedObjects[data.obj_id].x = data.x;
+    simulatedObjects[data.obj_id].y = data.y;
+    renderSimulatedObjectsList();
+  }
+});
+
+socket.on("simulated_object_moved_to_zone", function(data) {
+  if (data.success) {
+    showNotification("Object moved to counting zone! 🎯");
+    if (simulatedObjects[data.obj_id]) {
+      simulatedObjects[data.obj_id].x = data.x;
+      simulatedObjects[data.obj_id].y = data.y;
+      renderSimulatedObjectsList();
+    }
+  }
+});
+
+socket.on("simulated_objects_list", function(data) {
+  simulatedObjects = data;
+  renderSimulatedObjectsList();
+});
+
 function setDefaultDates() {
   const today = new Date();
   const thirtyDaysAgo = new Date();
@@ -655,4 +914,5 @@ function setDefaultDates() {
 
 document.addEventListener("DOMContentLoaded", function() {
   setDefaultDates();
+  socket.emit("get_simulated_objects");
 });

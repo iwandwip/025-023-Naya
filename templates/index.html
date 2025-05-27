@@ -81,6 +81,118 @@
             </div>
           </div>
 
+          <div class="simulation-controls">
+            <h3>🎮 Simulation Mode</h3>
+
+            <div class="simulation-toggle">
+              <label class="switch">
+                <input type="checkbox" id="simulationToggle" />
+                <span class="slider-switch"></span>
+              </label>
+              <span id="simulationStatus">Real Detection Mode</span>
+            </div>
+
+            <div
+              id="simulationPanel"
+              class="simulation-panel"
+              style="display: none"
+            >
+              <div class="sim-section">
+                <h4>Add Simulated Object</h4>
+                <div class="sim-form">
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="simLabel">Product:</label>
+                      <select id="simLabel">
+                        <option value="person">Person</option>
+                        <option value="laptop">Laptop</option>
+                        <option value="smartphone">Smartphone</option>
+                        <option value="mouse">Mouse</option>
+                        <option value="keyboard">Keyboard</option>
+                        <option value="headphones">Headphones</option>
+                        <option value="monitor">Monitor</option>
+                        <option value="tablet">Tablet</option>
+                        <option value="usb drive">USB Drive</option>
+                        <option value="hard drive">Hard Drive</option>
+                        <option value="webcam">Webcam</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label for="simX">X:</label>
+                      <input
+                        type="number"
+                        id="simX"
+                        value="100"
+                        min="0"
+                        max="600"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="simY">Y:</label>
+                      <input
+                        type="number"
+                        id="simY"
+                        value="150"
+                        min="0"
+                        max="400"
+                      />
+                    </div>
+                    <div class="form-group">
+                      <label for="simWidth">Width:</label>
+                      <input
+                        type="number"
+                        id="simWidth"
+                        value="80"
+                        min="20"
+                        max="200"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="simHeight">Height:</label>
+                      <input
+                        type="number"
+                        id="simHeight"
+                        value="120"
+                        min="20"
+                        max="200"
+                      />
+                    </div>
+                    <div class="form-group">
+                      <button id="addSimObjectBtn" class="btn btn-sim">
+                        <i class="fas fa-plus"></i> Add Object
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="sim-section">
+                <h4>Active Objects</h4>
+                <div id="simulatedObjectsList" class="sim-objects-list">
+                  <div class="no-objects">No simulated objects</div>
+                </div>
+              </div>
+
+              <div class="sim-section">
+                <h4>Quick Tests</h4>
+                <div class="quick-tests">
+                  <button id="testCountingBtn" class="btn btn-test" disabled>
+                    <i class="fas fa-crosshairs"></i> Move to Zone
+                  </button>
+                  <button id="clearSimObjectsBtn" class="btn btn-danger">
+                    <i class="fas fa-trash"></i> Clear All
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="status">
             <div class="loading">
               <span class="spinner"></span> Scanning products...
