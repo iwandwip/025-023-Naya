@@ -99,12 +99,17 @@ function showFloatingWindow(windowType) {
   
   if (windowType === 'simulation') {
     floatingSimulationWindow.classList.add('active');
-    const pos = windowStates.simulation.position;
-    setWindowPosition(pos.x, pos.y, 'simulation');
+    
+    floatingSimulationWindow.style.right = 'auto';
+    floatingSimulationWindow.style.left = windowStates.simulation.position.x + 'px';
+    floatingSimulationWindow.style.top = windowStates.simulation.position.y + 'px';
+    
   } else if (windowType === 'config') {
     floatingConfigWindow.classList.add('active');
-    const pos = windowStates.config.position;
-    setWindowPosition(pos.x, pos.y, 'config');
+    
+    floatingConfigWindow.style.right = 'auto';
+    floatingConfigWindow.style.left = windowStates.config.position.x + 'px';
+    floatingConfigWindow.style.top = windowStates.config.position.y + 'px';
     
     setTimeout(() => {
       const configElements = floatingConfigWindow.querySelectorAll('input, select, button, .config-tab');
