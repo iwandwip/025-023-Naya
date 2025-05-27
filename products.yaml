@@ -1,23 +1,13 @@
 products:
-  hard drive:
-    price: 1500
-  headphones:
-    price: 1000
-  keyboard:
-    price: 500
-  laptop:
-    price: 10000
-  monitor:
-    price: 3000
-  mouse:
-    price: 300
+  indomie:
+    price: 3200
+  indomilk:
+    price: 5250
+  kecap:
+    price: 4000
+  keju:
+    price: 16600
   person:
     price: 10000
-  smartphone:
-    price: 5000
-  tablet:
+  sabun:
     price: 4000
-  usb drive:
-    price: 200
-  webcam:
-    price: 800
