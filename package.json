@@ -4,18 +4,22 @@
   "private": true,
   "scripts": {
     "dev": "concurrently \"npm run dev:next\" \"npm run dev:python\"",
-    "dev:next": "next dev --turbopack",
+    "dev:next": "next dev --turbopack -p 3002",
     "dev:python": "cd services && python app.py",
     "build": "next build",
+    "build:windows": "set NODE_OPTIONS=--max-old-space-size=4096 && next build",
+    "build:clean": "rimraf .next && next build",
     "start": "concurrently \"npm run start:next\" \"npm run start:python\"",
-    "start:next": "next start",
+    "start:next": "next start -p 3002",
     "start:python": "cd services && python app.py",
     "lint": "next lint",
     "deploy:pi": "./scripts/deploy-pi.sh",
     "env:setup": "npm run env:copy && cd services && npm run env:copy",
     "env:copy": "if not exist .env copy .env.example .env",
     "env:check": "node -e \"console.log('Frontend ENV:', process.env.NEXT_PUBLIC_API_BASE_URL)\"",
-    "dev:full": "npm run env:setup && npm run dev"
+    "dev:full": "npm run env:setup && npm run dev",
+    "kill:ports": "taskkill /IM node.exe /F",
+    "start:dev": "npm run kill:ports && npm run dev"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.2",
@@ -48,6 +52,7 @@
     "concurrently": "^8.2.0",
     "eslint": "^9",
     "eslint-config-next": "15.3.3",
+    "rimraf": "^3.0.2",
     "tailwindcss": "^4",
     "tw-animate-css": "^1.3.4",
     "typescript": "^5"
