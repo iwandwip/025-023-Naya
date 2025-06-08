@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { SOCKET_URL } from '@/lib/constants';
 import { Cart, Product, Transaction, SimulatedObject, AppConfig } from '@/lib/types';
@@ -16,9 +16,26 @@ export function useSocket() {
   const [isScanning, setIsScanning] = useState(false);
   const [isSimulationMode, setIsSimulationMode] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
+  const [isClient, setIsClient] = useState(false);
+
+  const showNotification = useCallback((message: string) => {
+    setNotification(message);
+    setTimeout(() => setNotification(null), 3000);
+  }, []);
 
   useEffect(() => {
-    const socketInstance = io(SOCKET_URL);
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isClient) return;
+
+    const socketInstance = io(SOCKET_URL, {
+      forceNew: true,
+      reconnection: true,
+      timeout: 20000,
+    });
+    
     setSocket(socketInstance);
 
     socketInstance.on('connect', () => {
@@ -122,90 +139,85 @@ export function useSocket() {
     return () => {
       socketInstance.disconnect();
     };
-  }, []);
+  }, [isClient, showNotification]);
 
-  const showNotification = (message: string) => {
-    setNotification(message);
-    setTimeout(() => setNotification(null), 3000);
-  };
-
-  const startScanning = (config: any) => {
+  const startScanning = useCallback((config: any) => {
     setIsScanning(true);
     socket?.emit('start_scanning', config);
-  };
+  }, [socket]);
 
-  const stopScanning = () => {
+  const stopScanning = useCallback(() => {
     setIsScanning(false);
     socket?.emit('stop_scanning');
-  };
+  }, [socket]);
 
-  const removeItem = (name: string) => {
+  const removeItem = useCallback((name: string) => {
     socket?.emit('remove_item', { name });
-  };
+  }, [socket]);
 
-  const clearCart = () => {
+  const clearCart = useCallback(() => {
     socket?.emit('clear_cart');
-  };
+  }, [socket]);
 
-  const checkoutComplete = () => {
+  const checkoutComplete = useCallback(() => {
     socket?.emit('checkout_complete');
-  };
+  }, [socket]);
 
-  const getProducts = () => {
+  const getProducts = useCallback(() => {
     socket?.emit('get_products');
-  };
+  }, [socket]);
 
-  const addProduct = (name: string, price: number) => {
+  const addProduct = useCallback((name: string, price: number) => {
     socket?.emit('add_product', { name, price });
-  };
+  }, [socket]);
 
-  const updateProduct = (name: string, price: number) => {
+  const updateProduct = useCallback((name: string, price: number) => {
     socket?.emit('update_product', { name, price });
-  };
+  }, [socket]);
 
-  const deleteProduct = (name: string) => {
+  const deleteProduct = useCallback((name: string) => {
     socket?.emit('delete_product', { name });
-  };
+  }, [socket]);
 
-  const getTransactionHistory = () => {
+  const getTransactionHistory = useCallback(() => {
     socket?.emit('get_transaction_history');
-  };
+  }, [socket]);
 
-  const deleteTransaction = (id: string) => {
+  const deleteTransaction = useCallback((id: string) => {
     socket?.emit('delete_transaction', { id });
-  };
+  }, [socket]);
 
-  const toggleSimulation = (enabled: boolean) => {
+  const toggleSimulation = useCallback((enabled: boolean) => {
     socket?.emit('toggle_simulation', { enabled });
-  };
+  }, [socket]);
 
-  const addSimulatedObject = (params: any) => {
+  const addSimulatedObject = useCallback((params: any) => {
     socket?.emit('add_simulated_object', params);
-  };
+  }, [socket]);
 
-  const removeSimulatedObject = (objId: string) => {
+  const removeSimulatedObject = useCallback((objId: string) => {
     socket?.emit('remove_simulated_object', { obj_id: objId });
-  };
+  }, [socket]);
 
-  const moveSimulatedObject = (objId: string, direction: string, step: number = 15) => {
+  const moveSimulatedObject = useCallback((objId: string, direction: string, step: number = 15) => {
     socket?.emit('move_simulated_object', { obj_id: objId, direction, step });
-  };
+  }, [socket]);
 
-  const moveToZone = (objId: string) => {
+  const moveToZone = useCallback((objId: string) => {
     socket?.emit('preset_move_to_zone', { obj_id: objId });
-  };
+  }, [socket]);
 
-  const updateConfig = (type: string, config: any) => {
+  const updateConfig = useCallback((type: string, config: any) => {
     socket?.emit(`update_${type}_config`, config);
-  };
+  }, [socket]);
 
-  const applyPreset = (preset: string) => {
+  const applyPreset = useCallback((preset: string) => {
     socket?.emit('apply_preset_config', preset);
-  };
+  }, [socket]);
 
   return {
     socket,
-    isConnected,
+    isConnected: isClient ? isConnected : false,
     cart,
     total,
     products,

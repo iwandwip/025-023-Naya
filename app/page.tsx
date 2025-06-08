@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useSocket } from '@/hooks/useSocket';
 import ScannerView from '@/components/scanner/ScannerView';
 import CartSidebar from '@/components/cart/CartSidebar';
@@ -13,10 +13,28 @@ import { Package } from 'lucide-react';
 
 export default function HomePage() {
   const socket = useSocket();
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    socket.getProducts();
-  }, [socket.getProducts]);
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    if (isClient && socket.isConnected) {
+      socket.getProducts();
+    }
+  }, [isClient, socket.isConnected, socket.getProducts]);
+
+  if (!isClient) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Package className="h-12 w-12 text-blue-600 mx-auto mb-4 animate-spin" />
+          <p className="text-gray-600">Loading Self-Checkout System...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

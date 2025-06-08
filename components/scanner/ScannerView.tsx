@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useSocket } from '@/hooks/useSocket';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +13,22 @@ import Image from 'next/image';
 
 export default function ScannerView() {
   const socket = useSocket();
+  const [imageKey, setImageKey] = useState('');
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+    setImageKey(Date.now().toString());
+  }, []);
+
+  useEffect(() => {
+    if (socket.isScanning) {
+      const interval = setInterval(() => {
+        setImageKey(Date.now().toString());
+      }, 100);
+      return () => clearInterval(interval);
+    }
+  }, [socket.isScanning]);
 
   const handleStartScanning = () => {
     socket.startScanning(DEFAULT_CONFIG.detection);
@@ -24,6 +41,24 @@ export default function ScannerView() {
   const handleSimulationToggle = (enabled: boolean) => {
     socket.toggleSimulation(enabled);
   };
+
+  if (!isClient) {
+    return (
+      <Card className="h-full">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Camera className="h-5 w-5" />
+            Live Detection Feed
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="w-full h-96 bg-gray-100 rounded-lg border flex items-center justify-center">
+            <div className="text-gray-500">Loading camera feed...</div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="h-full">
@@ -49,7 +84,8 @@ export default function ScannerView() {
       <CardContent className="space-y-4">
         <div className="relative">
           <Image
-            src={`${API_BASE_URL}/video_feed?${Date.now()}`}
+            key={imageKey}
+            src={`${API_BASE_URL}/video_feed?t=${imageKey}`}
             alt="Detection Feed"
             width={640}
             height={480}
@@ -59,6 +95,7 @@ export default function ScannerView() {
               target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQwIiBoZWlnaHQ9IjQ4MCIgdmlld0JveD0iMCAwIDY0MCA0ODAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI2NDAiIGhlaWdodD0iNDgwIiBmaWxsPSIjRjNGNEY2Ii8+Cjx0ZXh0IHg9IjMyMCIgeT0iMjQwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNkI3MjgwIiBmb250LXNpemU9IjE2Ij5DYW1lcmEgTm90IEF2YWlsYWJsZTwvdGV4dD4KPC9zdmc+';
             }}
             unoptimized
+            priority
           />
           
           {socket.isSimulationMode && (

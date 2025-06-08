@@ -1,7 +1,12 @@
-export const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? 'http://192.168.4.1:5000'
-  : 'http://localhost:5000';
+const getApiBaseUrl = () => {
+  if (typeof window === 'undefined') {
+    return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:5002';
+  }
+  
+  return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:5002';
+};
 
+export const API_BASE_URL = getApiBaseUrl();
 export const SOCKET_URL = API_BASE_URL;
 
 export const DEFAULT_CONFIG = {
