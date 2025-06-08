@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pembayaran QR</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .container {
+            text-align: center;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            margin: 20px;
+            width: 80%;
+            max-width: 600px;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        .qr-code img {
+            width: 100%;
+            max-width: 300px;
+            margin: 20px 0;
+        }
+
+        .btn-selesai {
+            padding: 10px 20px;
+            font-size: 16px;
+            color: white;
+            background-color: #007BFF;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .btn-selesai:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Silakan scan kode QR berikut untuk melakukan pembayaran!</h1>
+        <div class="qr-code">
+            <img id="qr" src="kode_qr.png" alt="Kode QR" />
+        </div>
+        <button onclick="selesai()" class="btn-selesai">Selesai</button>
+    </div>
+    <script>
+        function selesai() {
+            alert("Pembayaran selesai! Terima kasih.");
+            window.location.href = 'index.html'; // Kembali ke halaman utama
+        }
+    </script>
+</body>
+</html>

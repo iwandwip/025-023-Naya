@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Struk Pembelian</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🛒 Struk Pembelian</h1>
+        </header>
+
+        <section>
+            <h2>Daftar Belanja:</h2>
+            <ul id="receipt-list">
+                <!-- Data barang yang dibeli akan tampil di sini -->
+            </ul>
+            <p id="total-amount">Total Pembelian: Rp 0</p>
+        </section>
+
+        <section>
+            <h2>Pembayaran</h2>
+            <div id="qr-code-section"></div> <!-- QR Code Pembayaran -->
+        </section>
+
+        <footer>
+            <button onclick="window.location.href='/'">Kembali ke Beranda</button>
+        </footer>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script>
+        // Ambil data transaksi dari Flask atau JS
+        const products = {{ products | tojson }};
+        const total = {{ total | tojson }};
+        
+        const receiptList = document.getElementById('receipt-list');
+        const totalAmount = document.getElementById('total-amount');
+        const qrCodeSection = document.getElementById('qr-code-section');
+        
+        // Menampilkan daftar belanja
+        products.forEach(product => {
+            const li = document.createElement('li');
+            li.textContent = `${product.name} - Rp ${product.price.toLocaleString()}`;
+            receiptList.appendChild(li);
+        });
+
+        // Menampilkan total harga
+        totalAmount.textContent = `Total Pembelian: Rp ${total.toLocaleString()}`;
+
+        // Membuat QR Code untuk pembayaran
+        const checkoutData = `TOTAL PEMBAYARAN: Rp ${total.toLocaleString()}`;
+        new QRCode(qrCodeSection, {
+            text: checkoutData,
+            width: 200,
+            height: 200
+        });
+    </script>
+</body>
+</html>
