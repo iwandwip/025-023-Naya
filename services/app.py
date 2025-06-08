@@ -585,7 +585,7 @@ class SelfCheckoutApp:
     def run(self):
         print(f"Starting Self-Checkout API Server on {self.host}:{self.port}")
         print(f"Environment: {os.getenv('NODE_ENV', 'development')}")
-        print(f"Frontend should be running on http://localhost:{os.getenv('PORT', 3000)}")
+        print(f"Frontend should be running on http://localhost:{os.getenv('PORT', 3002)}")
         print(f"Video feed available at http://{self.host}:{self.port}/video_feed")
         
         self.socketio.run(self.app, host=self.host, port=self.port, debug=self.debug, allow_unsafe_werkzeug=True)
