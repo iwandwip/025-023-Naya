@@ -7,14 +7,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Play, Square, Camera, Gamepad2 } from 'lucide-react';
+import { Play, Square, Camera, Gamepad2, AlertCircle } from 'lucide-react';
 import { API_BASE_URL, DEFAULT_CONFIG } from '@/lib/constants';
-import Image from 'next/image';
 
 export default function ScannerView() {
   const socket = useSocket();
   const [imageKey, setImageKey] = useState('');
   const [isClient, setIsClient] = useState(false);
+  const [imageError, setImageError] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
@@ -25,12 +26,15 @@ export default function ScannerView() {
     if (socket.isScanning) {
       const interval = setInterval(() => {
         setImageKey(Date.now().toString());
-      }, 100);
+        setImageError(false);
+      }, 200);
       return () => clearInterval(interval);
     }
   }, [socket.isScanning]);
 
   const handleStartScanning = () => {
+    setImageError(false);
+    setImageLoaded(false);
     socket.startScanning(DEFAULT_CONFIG.detection);
   };
 
@@ -40,6 +44,23 @@ export default function ScannerView() {
 
   const handleSimulationToggle = (enabled: boolean) => {
     socket.toggleSimulation(enabled);
+  };
+
+  const handleImageLoad = () => {
+    setImageLoaded(true);
+    setImageError(false);
+  };
+
+  const handleImageError = () => {
+    setImageError(true);
+    setImageLoaded(false);
+    console.error('Video feed error:', API_BASE_URL);
+  };
+
+  const handleRetryConnection = () => {
+    setImageError(false);
+    setImageLoaded(false);
+    setImageKey(Date.now().toString());
   };
 
   if (!isClient) {
@@ -60,6 +81,8 @@ export default function ScannerView() {
     );
   }
 
+  const videoFeedUrl = `${API_BASE_URL}/video_feed?nocache=${Date.now()}`;
+
   return (
     <Card className="h-full">
       <CardHeader>
@@ -77,26 +100,57 @@ export default function ScannerView() {
                 Scanning...
               </Badge>
             )}
+            {imageError && (
+              <Badge variant="destructive">
+                <AlertCircle className="h-3 w-3 mr-1" />
+                Video Error
+              </Badge>
+            )}
           </div>
         </div>
       </CardHeader>
       
       <CardContent className="space-y-4">
         <div className="relative">
-          <Image
-            key={imageKey}
-            src={`${API_BASE_URL}/video_feed?t=${imageKey}`}
+          <img
+            key={`video-${imageKey}`}
+            src={videoFeedUrl}
             alt="Detection Feed"
-            width={640}
-            height={480}
             className="w-full h-96 object-cover rounded-lg border bg-gray-100"
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQwIiBoZWlnaHQ9IjQ4MCIgdmlld0JveD0iMCAwIDY0MCA0ODAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI2NDAiIGhlaWdodD0iNDgwIiBmaWxsPSIjRjNGNEY2Ii8+Cjx0ZXh0IHg9IjMyMCIgeT0iMjQwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNkI3MjgwIiBmb250LXNpemU9IjE2Ij5DYW1lcmEgTm90IEF2YWlsYWJsZTwvdGV4dD4KPC9zdmc+';
+            onLoad={handleImageLoad}
+            onError={handleImageError}
+            style={{
+              maxWidth: '100%',
+              height: '384px',
+              display: imageError ? 'none' : 'block'
             }}
-            unoptimized
-            priority
           />
+          
+          {imageError && (
+            <div className="w-full h-96 bg-gray-100 rounded-lg border flex flex-col items-center justify-center">
+              <AlertCircle className="h-12 w-12 text-gray-400 mb-4" />
+              <p className="text-gray-600 text-center mb-2">Camera feed unavailable</p>
+              <p className="text-sm text-gray-500 text-center max-w-sm mb-4">
+                Backend: {API_BASE_URL}
+              </p>
+              <Button 
+                onClick={handleRetryConnection} 
+                variant="outline" 
+                size="sm"
+              >
+                Retry Connection
+              </Button>
+            </div>
+          )}
+          
+          {!imageLoaded && !imageError && (
+            <div className="absolute inset-0 bg-gray-100 rounded-lg border flex items-center justify-center">
+              <div className="flex flex-col items-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-2"></div>
+                <p className="text-gray-600">Loading video feed...</p>
+              </div>
+            </div>
+          )}
           
           {socket.isSimulationMode && (
             <div className="absolute top-2 left-2">
@@ -153,7 +207,7 @@ export default function ScannerView() {
           {socket.isScanning ? (
             <p>🔍 Scanning for products... Place items on the conveyor belt</p>
           ) : (
-            <p>📷 Ready to scan. Press &quot;Start Scanning&quot; to begin detection</p>
+            <p>📷 Ready to scan. Press "Start Scanning" to begin detection</p>
           )}
         </div>
       </CardContent>

@@ -3,7 +3,22 @@ const getApiBaseUrl = () => {
     return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:5002';
   }
   
-  return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:5002';
+  const envUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+  if (envUrl) {
+    return envUrl;
+  }
+  
+  const hostname = window.location.hostname;
+  
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return 'http://127.0.0.1:5002';
+  }
+  
+  if (hostname.startsWith('192.168.')) {
+    return `http://${hostname}:5002`;
+  }
+  
+  return 'http://127.0.0.1:5002';
 };
 
 export const API_BASE_URL = getApiBaseUrl();
