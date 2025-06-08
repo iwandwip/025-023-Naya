@@ -1,0 +1,11 @@
+products:
+  indomie:
+    price: 3200
+  indomilk:
+    price: 5250
+  kecap:
+    price: 4000
+  keju:
+    price: 16600
+  sabun:
+    price: 4000
