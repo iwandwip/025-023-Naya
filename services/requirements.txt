@@ -50,8 +50,9 @@ setuptools>=70.0.0 # Snyk vulnerability fix
 
 # server
 flask
-firebase-admin
+flask-cors
 flask-socketio
+firebase-admin
 inquirer
 pynput
-firebase-admin
+python-dotenv

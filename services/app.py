@@ -1,5 +1,6 @@
-from flask import Flask, render_template, Response, jsonify
+from flask import Flask, Response, jsonify
 from flask_socketio import SocketIO
+from flask_cors import CORS
 import threading
 import time
 import numpy as np
@@ -7,6 +8,9 @@ import os
 import cv2
 import datetime
 import json
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from CameraHandler import Camera
 from DetectorManager import DetectorManager
@@ -28,17 +32,34 @@ def format_transaction_for_json(transaction):
 
 
 class SelfCheckoutApp:
-    def __init__(self, host='0.0.0.0', port=5000):
+    def __init__(self):
+        self.host = os.getenv('FLASK_HOST', '127.0.0.1')
+        self.port = int(os.getenv('FLASK_PORT', 5000))
+        self.debug = os.getenv('FLASK_DEBUG', 'True').lower() == 'true'
+        self.secret_key = os.getenv('FLASK_SECRET_KEY', 'self-checkout-secret-key')
+        
+        cors_origins = os.getenv('CORS_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000').split(',')
+        
         self.app = Flask(__name__)
-        self.socketio = SocketIO(self.app)
-        self.firestore_manager = FirestoreManager()
-        self.product_manager = ProductManager(self.firestore_manager)
-        self.camera = Camera()
-        self.detector_manager = DetectorManager(model_path="models/yolov5s.pt", product_manager=self.product_manager)
+        self.app.config['SECRET_KEY'] = self.secret_key
+        
+        CORS(self.app, origins=cors_origins)
+        
+        self.socketio = SocketIO(
+            self.app, 
+            cors_allowed_origins=cors_origins,
+            async_mode='threading'
+        )
+        
+        self.firestore_manager = FirestoreManager(os.getenv('FIREBASE_CREDENTIALS_PATH', 'firebase-credentials.json'))
+        self.product_manager = ProductManager(self.firestore_manager, os.getenv('PRODUCTS_CONFIG_PATH', 'products.yaml'))
+        self.camera = Camera(int(os.getenv('CAMERA_ID', 0)))
+        self.detector_manager = DetectorManager(
+            model_path=os.getenv('MODEL_PATH', 'models/yolov5s.pt'), 
+            product_manager=self.product_manager
+        )
         self.frame_lock = threading.Lock()
         self.output_frame = None
-        self.host = host
-        self.port = port
         self.register_routes()
         self.register_socket_events()
         self.processing_thread = None
@@ -48,7 +69,24 @@ class SelfCheckoutApp:
     def register_routes(self):
         @self.app.route('/')
         def index():
-            return render_template('index.html')
+            return jsonify({
+                'message': 'Self-Checkout API Server',
+                'status': 'running',
+                'version': '1.0.0',
+                'endpoints': {
+                    'video_feed': '/video_feed',
+                    'socket': '/socket.io'
+                }
+            })
+
+        @self.app.route('/api/health')
+        def health_check():
+            return jsonify({
+                'status': 'healthy',
+                'camera': self.camera.is_running,
+                'firestore': self.firestore_manager.is_connected(),
+                'products_count': len(self.product_manager.get_products())
+            })
 
         @self.app.route('/video_feed')
         def video_feed():
@@ -545,9 +583,20 @@ class SelfCheckoutApp:
             time.sleep(0.03)
 
     def run(self):
-        self.socketio.run(self.app, host=self.host, port=self.port, debug=False, allow_unsafe_werkzeug=True)
+        print(f"Starting Self-Checkout API Server on {self.host}:{self.port}")
+        print(f"Environment: {os.getenv('NODE_ENV', 'development')}")
+        print(f"Frontend should be running on http://localhost:{os.getenv('PORT', 3000)}")
+        print(f"Video feed available at http://{self.host}:{self.port}/video_feed")
+        
+        self.socketio.run(self.app, host=self.host, port=self.port, debug=self.debug, allow_unsafe_werkzeug=True)
 
 
 if __name__ == '__main__':
+    model_dir = os.getenv('MODEL_PATH', 'models/yolov5s.pt').split('/')[0]
+    if not os.path.exists(model_dir):
+        os.makedirs(model_dir)
+        print(f"Created '{model_dir}' directory")
+        print("Please run 'python download_model.py' to download YOLOv5 model")
+    
     app = SelfCheckoutApp()
     app.run()

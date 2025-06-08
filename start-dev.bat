@@ -22,8 +22,20 @@ if errorlevel 1 (
 )
 
 echo.
+echo Setting up environment files...
+if not exist ".env" (
+    echo Creating .env from template...
+    copy ".env.example" ".env"
+)
+
+echo.
 echo Setting up backend...
 cd services
+
+if not exist ".env" (
+    echo Creating services/.env from template...
+    copy ".env.example" ".env"
+)
 
 if not exist "venv" (
     echo Creating Python virtual environment...

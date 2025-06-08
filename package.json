@@ -11,7 +11,11 @@
     "start:next": "next start",
     "start:python": "cd services && python app.py",
     "lint": "next lint",
-    "deploy:pi": "./scripts/deploy-pi.sh"
+    "deploy:pi": "./scripts/deploy-pi.sh",
+    "env:setup": "npm run env:copy && cd services && npm run env:copy",
+    "env:copy": "if not exist .env copy .env.example .env",
+    "env:check": "node -e \"console.log('Frontend ENV:', process.env.NEXT_PUBLIC_API_BASE_URL)\"",
+    "dev:full": "npm run env:setup && npm run dev"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.2",

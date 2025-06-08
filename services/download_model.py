@@ -1,120 +1,106 @@
-import os
-import requests
-import torch
-from pathlib import Path
+import type { NextConfig } from "next";
 
+const nextConfig: NextConfig = {
+  output: 'standalone',
+  
+  experimental: {
+    optimizePackageImports: ['lucide-react', '@radix-ui/react-dialog', '@radix-ui/react-tabs']
+  },
 
-def download_yolov5_model():
-    models_dir = Path('models')
-    models_dir.mkdir(exist_ok=True)
-    
-    model_path = models_dir / 'yolov5s.pt'
-    
-    if model_path.exists():
-        print(f"✅ Model already exists at {model_path}")
-        return str(model_path)
-    
-    print("📥 Downloading YOLOv5s model...")
-    
-    try:
-        model = torch.hub.load('ultralytics/yolov5', 'yolov5s', pretrained=True)
-        torch.save(model.state_dict(), model_path)
-        print(f"✅ YOLOv5s model downloaded successfully to {model_path}")
-        return str(model_path)
-        
-    except Exception as e:
-        print(f"❌ Error downloading model via torch.hub: {e}")
-        
-        try:
-            print("📥 Trying direct download...")
-            url = "https://github.com/ultralytics/yolov5/releases/download/v6.0/yolov5s.pt"
-            
-            response = requests.get(url, stream=True)
-            response.raise_for_status()
-            
-            total_size = int(response.headers.get('content-length', 0))
-            downloaded = 0
-            
-            with open(model_path, 'wb') as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    if chunk:
-                        f.write(chunk)
-                        downloaded += len(chunk)
-                        if total_size > 0:
-                            percent = (downloaded / total_size) * 100
-                            print(f"\r📥 Downloading: {percent:.1f}%", end='', flush=True)
-            
-            print(f"\n✅ YOLOv5s model downloaded successfully to {model_path}")
-            return str(model_path)
-            
-        except Exception as e2:
-            print(f"❌ Error downloading model directly: {e2}")
-            return None
+  images: {
+    domains: ['localhost', '127.0.0.1', '192.168.4.1'],
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+  },
 
+  env: {
+    NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL,
+    NEXT_PUBLIC_SOCKET_URL: process.env.NEXT_PUBLIC_SOCKET_URL,
+    NEXT_PUBLIC_ENVIRONMENT: process.env.NEXT_PUBLIC_ENVIRONMENT,
+  },
 
-def verify_model():
-    model_path = Path('models/yolov5s.pt')
-    
-    if not model_path.exists():
-        print("❌ Model file not found")
-        return False
-    
-    try:
-        print("🔍 Verifying model...")
-        model = torch.hub.load('ultralytics/yolov5', 'custom', path=str(model_path), force_reload=True)
-        print("✅ Model verification successful")
-        return True
-        
-    except Exception as e:
-        print(f"❌ Model verification failed: {e}")
-        return False
+  async rewrites() {
+    const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:5000';
+    return [
+      {
+        source: '/api/:path*',
+        destination: `${apiBaseUrl}/:path*`,
+      },
+    ];
+  },
 
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'origin-when-cross-origin',
+          },
+        ],
+      },
+    ];
+  },
 
-def check_dependencies():
-    print("🔍 Checking dependencies...")
-    
-    required_packages = [
-        'torch', 'torchvision', 'opencv-python', 'pillow', 
-        'numpy', 'matplotlib', 'pyyaml', 'requests'
-    ]
-    
-    missing_packages = []
-    
-    for package in required_packages:
-        try:
-            __import__(package.replace('-', '_'))
-            print(f"✅ {package}")
-        except ImportError:
-            print(f"❌ {package} - MISSING")
-            missing_packages.append(package)
-    
-    if missing_packages:
-        print(f"\n📦 Install missing packages:")
-        print(f"pip install {' '.join(missing_packages)}")
-        return False
-    
-    print("✅ All dependencies are installed")
-    return True
+  webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+      net: false,
+      tls: false,
+    };
 
+    if (!dev && !isServer) {
+      config.optimization.splitChunks.cacheGroups.commons = {
+        name: 'commons',
+        chunks: 'all',
+        minChunks: 2,
+      };
+    }
 
-def main():
-    print("=" * 50)
-    print("🛒 Self-Checkout System - Model Setup")
-    print("=" * 50)
-    
-    if not check_dependencies():
-        print("\n❌ Please install missing dependencies first")
-        return
-    
-    model_path = download_yolov5_model()
-    
-    if model_path and verify_model():
-        print("\n🎉 Setup completed successfully!")
-        print(f"📁 Model location: {model_path}")
-        print("\n🚀 You can now run: python app.py")
-    else:
-        print("\n❌ Setup failed. Please check the errors above.")
+    return config;
+  },
 
+  compress: true,
 
-if __name__ == "__main__":
-    main()
+  poweredByHeader: false,
+
+  generateBuildId: async () => {
+    return `build-${Date.now()}`;
+  },
+
+  distDir: process.env.NODE_ENV === 'production' ? '.next' : '.next',
+
+  swcMinify: true,
+  
+  typescript: {
+    ignoreBuildErrors: false,
+  },
+
+  eslint: {
+    ignoreDuringBuilds: false,
+  },
+
+  trailingSlash: false,
+
+  async redirects() {
+    return [
+      {
+        source: '/admin',
+        destination: '/',
+        permanent: true,
+      },
+    ];
+  },
+};
+
+export default nextConfig;

@@ -7,3 +7,7 @@ __pycache__/*
 *.db
 firebase-credentials.json
 firebase-credentials*.json
+.env*
+!.env.example
+detection_config.json
+models/*.pt

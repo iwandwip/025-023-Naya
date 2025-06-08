@@ -18,8 +18,19 @@ if ! command -v node &>/dev/null; then
     exit 1
 fi
 
+echo "Setting up environment files..."
+if [ ! -f ".env" ]; then
+    echo "Creating .env from template..."
+    cp .env.example .env
+fi
+
 echo "Setting up backend..."
 cd services
+
+if [ ! -f ".env" ]; then
+    echo "Creating services/.env from template..."
+    cp .env.example .env
+fi
 
 # Create virtual environment if it doesn't exist
 if [ ! -d "venv" ]; then
