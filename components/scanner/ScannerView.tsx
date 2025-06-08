@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { useSocket } from '@/hooks/useSocket';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,13 +8,13 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Play, Square, Camera, Gamepad2 } from 'lucide-react';
 import { API_BASE_URL, DEFAULT_CONFIG } from '@/lib/constants';
+import Image from 'next/image';
 
 export default function ScannerView() {
   const socket = useSocket();
-  const [config, setConfig] = useState(DEFAULT_CONFIG);
 
   const handleStartScanning = () => {
-    socket.startScanning(config.detection);
+    socket.startScanning(DEFAULT_CONFIG.detection);
   };
 
   const handleStopScanning = () => {
@@ -49,13 +48,17 @@ export default function ScannerView() {
       
       <CardContent className="space-y-4">
         <div className="relative">
-          <img
+          <Image
             src={`${API_BASE_URL}/video_feed?${Date.now()}`}
             alt="Detection Feed"
+            width={640}
+            height={480}
             className="w-full h-96 object-cover rounded-lg border bg-gray-100"
             onError={(e) => {
-              e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQwIiBoZWlnaHQ9IjQ4MCIgdmlld0JveD0iMCAwIDY0MCA0ODAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI2NDAiIGhlaWdodD0iNDgwIiBmaWxsPSIjRjNGNEY2Ii8+Cjx0ZXh0IHg9IjMyMCIgeT0iMjQwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNkI3MjgwIiBmb250LXNpemU9IjE2Ij5DYW1lcmEgTm90IEF2YWlsYWJsZTwvdGV4dD4KPC9zdmc+';
+              const target = e.target as HTMLImageElement;
+              target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQwIiBoZWlnaHQ9IjQ4MCIgdmlld0JveD0iMCAwIDY0MCA0ODAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI2NDAiIGhlaWdodD0iNDgwIiBmaWxsPSIjRjNGNEY2Ii8+Cjx0ZXh0IHg9IjMyMCIgeT0iMjQwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNkI3MjgwIiBmb250LXNpemU9IjE2Ij5DYW1lcmEgTm90IEF2YWlsYWJsZTwvdGV4dD4KPC9zdmc+';
             }}
+            unoptimized
           />
           
           {socket.isSimulationMode && (
@@ -113,7 +116,7 @@ export default function ScannerView() {
           {socket.isScanning ? (
             <p>🔍 Scanning for products... Place items on the conveyor belt</p>
           ) : (
-            <p>📷 Ready to scan. Press "Start Scanning" to begin detection</p>
+            <p>📷 Ready to scan. Press &quot;Start Scanning&quot; to begin detection</p>
           )}
         </div>
       </CardContent>

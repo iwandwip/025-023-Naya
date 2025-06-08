@@ -16,7 +16,7 @@ export interface Transaction {
   id: string;
   items: TransactionItem[];
   total: number;
-  timestamp: any;
+  timestamp: unknown;
   formatted_date?: string;
 }
 

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSocket } from '@/hooks/useSocket';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import QRCode from 'react-qr-code';
 import { CreditCard, CheckCircle } from 'lucide-react';

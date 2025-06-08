@@ -8,17 +8,15 @@ import ConfigWindow from '@/components/config/ConfigWindow';
 import SimulationWindow from '@/components/simulation/SimulationWindow';
 import ProductModal from '@/components/admin/ProductModal';
 import HistoryModal from '@/components/history/HistoryModal';
-import CheckoutModal from '@/components/checkout/CheckoutModal';
 import Notification from '@/components/ui/notification';
-import { Button } from '@/components/ui/button';
-import { Settings, History, Package } from 'lucide-react';
+import { Package } from 'lucide-react';
 
 export default function HomePage() {
   const socket = useSocket();
 
   useEffect(() => {
     socket.getProducts();
-  }, []);
+  }, [socket.getProducts]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -54,7 +52,6 @@ export default function HomePage() {
       </main>
 
       <SimulationWindow />
-      <CheckoutModal />
       <Notification message={socket.notification} />
     </div>
   );

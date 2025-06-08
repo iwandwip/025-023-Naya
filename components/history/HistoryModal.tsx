@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSocket } from '@/hooks/useSocket';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { History, Eye, Trash2, Calendar, DollarSign, ShoppingBag } from 'lucide-react';
+import { History, Trash2, Calendar, DollarSign, ShoppingBag } from 'lucide-react';
 import { Transaction } from '@/lib/types';
 
 export default function HistoryModal() {
@@ -21,14 +21,11 @@ export default function HistoryModal() {
     end: ''
   });
 
-  useEffect(() => {
-    if (open) {
-      socket.getTransactionHistory();
-      setDefaultDates();
-    }
-  }, [open]);
+  const getTransactionHistory = useCallback(() => {
+    socket.getTransactionHistory();
+  }, [socket]);
 
-  const setDefaultDates = () => {
+  const setDefaultDates = useCallback(() => {
     const today = new Date();
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(today.getDate() - 30);
@@ -41,13 +38,20 @@ export default function HistoryModal() {
       start: formatDate(thirtyDaysAgo),
       end: formatDate(today)
     });
-  };
+  }, []);
+
+  useEffect(() => {
+    if (open) {
+      getTransactionHistory();
+      setDefaultDates();
+    }
+  }, [open, getTransactionHistory, setDefaultDates]);
 
   const handleDateFilter = () => {
     if (dateRange.start && dateRange.end) {
       // Emit filter by date range
     } else {
-      socket.getTransactionHistory();
+      getTransactionHistory();
     }
   };
 
@@ -104,7 +108,7 @@ export default function HistoryModal() {
                 </div>
                 <div className="flex items-end">
                   <Button 
-                    onClick={() => socket.getTransactionHistory()} 
+                    onClick={() => getTransactionHistory()} 
                     variant="outline" 
                     className="w-full"
                   >

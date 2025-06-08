@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSocket } from '@/hooks/useSocket';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,11 +17,15 @@ export default function ProductModal() {
   const [newProduct, setNewProduct] = useState({ name: '', price: '' });
   const [editProduct, setEditProduct] = useState<{ name: string; price: string } | null>(null);
 
+  const getProducts = useCallback(() => {
+    socket.getProducts();
+  }, [socket]);
+
   useEffect(() => {
     if (open) {
-      socket.getProducts();
+      getProducts();
     }
-  }, [open]);
+  }, [open, getProducts]);
 
   const handleAddProduct = () => {
     if (newProduct.name && newProduct.price) {
