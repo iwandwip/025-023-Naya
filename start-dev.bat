@@ -26,6 +26,8 @@ echo Setting up environment files...
 if not exist ".env" (
     echo Creating .env from template...
     copy ".env.example" ".env"
+) else (
+    echo .env already exists, skipping...
 )
 
 echo.
@@ -35,35 +37,78 @@ cd services
 if not exist ".env" (
     echo Creating services/.env from template...
     copy ".env.example" ".env"
+) else (
+    echo services/.env already exists, skipping...
 )
 
-if not exist "venv" (
+echo Checking virtual environment...
+if not exist "venv\Scripts\python.exe" (
     echo Creating Python virtual environment...
     python -m venv venv
+    if errorlevel 1 (
+        echo ERROR: Failed to create virtual environment
+        pause
+        exit /b 1
+    )
+) else (
+    echo Virtual environment already exists, skipping creation...
 )
 
-echo Activating virtual environment...
+echo Testing virtual environment activation...
 call venv\Scripts\activate.bat
+if errorlevel 1 (
+    echo ERROR: Failed to activate virtual environment
+    echo Recreating virtual environment...
+    rmdir /s /q venv
+    python -m venv venv
+    call venv\Scripts\activate.bat
+)
 
-echo Installing Python dependencies...
-pip install -r requirements.txt
+echo Checking Python dependencies...
+pip show torch >nul 2>&1
+if errorlevel 1 (
+    echo Installing Python dependencies...
+    pip install -r requirements.txt
+    if errorlevel 1 (
+        echo ERROR: Failed to install dependencies
+        pause
+        exit /b 1
+    )
+) else (
+    echo Python dependencies already installed, skipping...
+)
 
+echo Checking YOLOv5 model...
 if not exist "models\yolov5s.pt" (
     echo Downloading YOLOv5 model...
     python download_model.py
+    if errorlevel 1 (
+        echo ERROR: Failed to download model
+        pause
+        exit /b 1
+    )
+) else (
+    echo YOLOv5 model already exists, skipping download...
 )
 
 echo.
 echo Starting backend server...
-start cmd /k "title Backend Server && venv\Scripts\activate && python app.py"
+start cmd /k "title Backend Server && cd /d %CD% && venv\Scripts\activate.bat && python app.py"
 
 cd ..
 
 echo.
 echo Setting up frontend...
-if not exist "node_modules" (
+if not exist "node_modules\next" (
     echo Installing Node.js dependencies...
     npm install
+    if errorlevel 1 (
+        echo ERROR: Failed to install Node.js dependencies
+        pause
+        exit /b 1
+    )
+) else (
+    echo Node.js dependencies already installed, skipping...
 )
 
 echo.
@@ -75,9 +120,9 @@ echo ============================================
 echo   Development servers are starting...
 echo ============================================
 echo.
-echo Frontend: http://localhost:3000
-echo Backend:  http://127.0.0.1:5000
-echo Video:    http://127.0.0.1:5000/video_feed
+echo Frontend: http://localhost:3002
+echo Backend:  http://127.0.0.1:5002
+echo Video:    http://127.0.0.1:5002/video_feed
 echo.
 echo Press any key to exit...
 pause >nul
