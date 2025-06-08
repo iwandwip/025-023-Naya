@@ -16,7 +16,7 @@
     "deploy:pi": "./scripts/deploy-pi.sh",
     "env:setup": "npm run env:copy && cd services && npm run env:copy",
     "env:copy": "if not exist .env copy .env.example .env",
-    "env:check": "node -e \"console.log('Frontend ENV:', process.env.NEXT_PUBLIC_API_BASE_URL)\"",
+    "env:check": "node -e \"console.log('Frontend PORT:', process.env.PORT); console.log('API URL:', process.env.NEXT_PUBLIC_API_BASE_URL);\"",
     "dev:full": "npm run env:setup && npm run dev",
     "kill:ports": "taskkill /IM node.exe /F",
     "start:dev": "npm run kill:ports && npm run dev"
