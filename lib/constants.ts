@@ -9,16 +9,17 @@ const getApiBaseUrl = () => {
   }
   
   const hostname = window.location.hostname;
+  const port = '5002';
   
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return 'http://127.0.0.1:5002';
+    return `http://127.0.0.1:${port}`;
   }
   
-  if (hostname.startsWith('192.168.')) {
-    return `http://${hostname}:5002`;
+  if (hostname.startsWith('192.168.') || hostname.startsWith('10.') || hostname.startsWith('172.')) {
+    return `http://${hostname}:${port}`;
   }
   
-  return 'http://127.0.0.1:5002';
+  return `http://127.0.0.1:${port}`;
 };
 
 export const API_BASE_URL = getApiBaseUrl();

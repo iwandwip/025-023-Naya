@@ -63,7 +63,6 @@ class SelfCheckoutApp:
         self.video_streamer = VideoStreamer()
         self.processing_thread = None
         self.is_processing = False
-        self.processing_lock = threading.Lock()
 
         self.register_routes()
         self.register_socket_events()
@@ -111,7 +110,10 @@ class SelfCheckoutApp:
             zone_start = data.get('zoneStart', 70)
             zone_width = data.get('zoneWidth', 20)
             self.detector_manager.set_zone_parameters(zone_start, zone_width)
-            self.start_camera_processing()
+            
+            if not self.is_processing:
+                self.start_processing()
+            
             self.detector_manager.start_scanning()
             print(f"Scanning started with zone start: {zone_start}%, width: {zone_width}%")
 
@@ -507,60 +509,70 @@ class SelfCheckoutApp:
                 print("Configuration reset to defaults")
 
     def processing_loop(self):
-        try:
-            while self.is_processing:
-                success, frame = self.camera.read()
+        while self.is_processing:
+            try:
+                if self.camera.is_available():
+                    success, frame = self.camera.read()
+                    
+                    if success and frame is not None:
+                        frame_width, frame_height = self.camera.get_dimensions()
+                        processed_frame = self.detector_manager.process_frame(frame, frame_width, frame_height)
+                        self.video_streamer.update_frame(processed_frame)
+                        
+                        if self.detector_manager.is_scanning:
+                            self.socketio.emit('cart_update', {
+                                'cart': self.detector_manager.get_cart(),
+                                'total': self.detector_manager.calculate_total()
+                            })
+                    else:
+                        error_frame = self._create_error_frame("Camera read failed")
+                        self.video_streamer.update_frame(error_frame)
+                        
+                else:
+                    if not self.camera.start():
+                        error_frame = self._create_error_frame("Camera not available")
+                        self.video_streamer.update_frame(error_frame)
+                        time.sleep(1)
+                        continue
+                
+                time.sleep(0.033)
+                
+            except Exception as e:
+                print(f"Processing error: {e}")
+                error_frame = self._create_error_frame(f"Error: {str(e)}")
+                self.video_streamer.update_frame(error_frame)
+                time.sleep(0.1)
 
-                if not success:
-                    blank_frame = np.zeros((480, 640, 3), dtype=np.uint8)
-                    text = "Camera not available"
-                    font = cv2.FONT_HERSHEY_SIMPLEX
-                    textsize = cv2.getTextSize(text, font, 1, 2)[0]
-                    textX = (blank_frame.shape[1] - textsize[0]) // 2
-                    textY = (blank_frame.shape[0] + textsize[1]) // 2
-                    cv2.putText(blank_frame, text, (textX, textY), font, 1, (255, 255, 255), 2)
+    def _create_error_frame(self, message):
+        frame = np.zeros((480, 640, 3), dtype=np.uint8)
+        frame[:] = [40, 20, 20]
+        
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        text_size = cv2.getTextSize(message, font, 0.7, 2)[0]
+        text_x = (640 - text_size[0]) // 2
+        text_y = 240
+        
+        cv2.putText(frame, message, (text_x, text_y), font, 0.7, (100, 100, 255), 2)
+        
+        return frame
 
-                    self.video_streamer.update_frame(blank_frame)
-                    time.sleep(0.5)
-                    continue
+    def start_processing(self):
+        if self.is_processing:
+            return
+            
+        self.is_processing = True
+        self.processing_thread = threading.Thread(target=self.processing_loop)
+        self.processing_thread.daemon = True
+        self.processing_thread.start()
+        print("Video processing started")
 
-                frame_width, frame_height = self.camera.get_dimensions()
-                processed_frame = self.detector_manager.process_frame(frame, frame_width, frame_height)
-
-                self.video_streamer.update_frame(processed_frame)
-
-                if self.detector_manager.is_scanning:
-                    self.socketio.emit('cart_update', {
-                        'cart': self.detector_manager.get_cart(),
-                        'total': self.detector_manager.calculate_total()
-                    })
-
-                time.sleep(0.03)
-        finally:
-            self.camera.stop()
-
-    def start_camera_processing(self):
-        with self.processing_lock:
-            if self.is_processing:
-                return
-
-            if self.camera.start():
-                self.is_processing = True
-                self.processing_thread = threading.Thread(target=self.processing_loop)
-                self.processing_thread.daemon = True
-                self.processing_thread.start()
-                print("Camera processing started")
-            else:
-                print("Failed to start camera")
-
-    def stop_camera_processing(self):
-        with self.processing_lock:
-            self.is_processing = False
-            if self.processing_thread:
-                self.processing_thread.join(timeout=1.0)
-                self.processing_thread = None
-            self.camera.stop()
-            self.video_streamer.stop()
+    def stop_processing(self):
+        self.is_processing = False
+        if self.processing_thread:
+            self.processing_thread.join(timeout=1.0)
+            self.processing_thread = None
+        self.camera.stop()
+        self.video_streamer.stop()
 
     def run(self):
         print(f"Starting Self-Checkout API Server on {self.host}:{self.port}")
@@ -568,10 +580,12 @@ class SelfCheckoutApp:
         print(f"Frontend should be running on http://localhost:{os.getenv('PORT', 3002)}")
         print(f"Video feed available at http://{self.host}:{self.port}/video_feed")
         
+        self.start_processing()
+        
         try:
             self.socketio.run(self.app, host=self.host, port=self.port, debug=self.debug, allow_unsafe_werkzeug=True)
         finally:
-            self.stop_camera_processing()
+            self.stop_processing()
 
 
 if __name__ == '__main__':
