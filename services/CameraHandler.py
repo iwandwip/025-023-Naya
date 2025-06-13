@@ -41,39 +41,70 @@ class Camera:
 
     def _try_open_camera(self):
         if platform.system() == "Windows":
-            backends = [cv2.CAP_DSHOW, cv2.CAP_ANY]
+            # Try different backends for Windows - MSMF first, then CAP_ANY (no backend), then DSHOW
+            backends = [cv2.CAP_MSMF, cv2.CAP_ANY, cv2.CAP_DSHOW]
         else:
             backends = [cv2.CAP_V4L2, cv2.CAP_ANY]
 
         for backend in backends:
             try:
-                self.cap = cv2.VideoCapture(self.camera_id, backend)
+                print(f"Trying camera backend: {backend}")
+                
+                # For CAP_ANY, don't specify backend parameter
+                if backend == cv2.CAP_ANY:
+                    self.cap = cv2.VideoCapture(self.camera_id)
+                else:
+                    self.cap = cv2.VideoCapture(self.camera_id, backend)
                 
                 if not self.cap.isOpened():
+                    print(f"Backend {backend} - Camera not opened")
+                    if self.cap:
+                        self.cap.release()
                     continue
 
+                # Set camera properties
                 self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
                 self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
                 self.cap.set(cv2.CAP_PROP_FPS, 30)
                 self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+                
+                # Additional Windows-specific settings for better compatibility
+                if platform.system() == "Windows":
+                    try:
+                        self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
+                    except:
+                        pass
 
                 self.frame_width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
                 self.frame_height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
+                # Test read to ensure camera is working
                 ret, test_frame = self.cap.read()
                 if ret and test_frame is not None:
-                    print(f"Camera opened with backend: {backend}")
-                    return True
+                    print(f"✓ Camera opened successfully with backend: {backend}")
+                    print(f"  Resolution: {self.frame_width}x{self.frame_height}")
+                    # Test a few more frames to ensure stability
+                    for i in range(3):
+                        ret, _ = self.cap.read()
+                        if not ret:
+                            print(f"Backend {backend} - Frame {i+1} read failed")
+                            self.cap.release()
+                            break
+                        time.sleep(0.1)
+                    else:
+                        return True
                 else:
+                    print(f"Backend {backend} - Test frame read failed")
                     self.cap.release()
                     continue
 
             except Exception as e:
-                print(f"Backend {backend} failed: {e}")
+                print(f"Backend {backend} failed with error: {e}")
                 if self.cap:
                     self.cap.release()
                 continue
 
+        print("❌ All camera backends failed")
         return False
 
     def stop(self):

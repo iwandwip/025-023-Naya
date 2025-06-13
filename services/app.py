@@ -17,6 +17,7 @@ from DetectorManager import DetectorManager
 from ProductManager import ProductManager
 from FirestoreManager import FirestoreManager
 from VideoStreamer import VideoStreamer
+from StreamingServer import StreamingServer
 
 
 def format_transaction_for_json(transaction):
@@ -49,7 +50,9 @@ class SelfCheckoutApp:
         self.socketio = SocketIO(
             self.app, 
             cors_allowed_origins=cors_origins,
-            async_mode='threading'
+            async_mode='threading',
+            logger=False,  # Disable verbose logging
+            engineio_logger=False  # Disable engine.io logging
         )
         
         self.firestore_manager = FirestoreManager(os.getenv('FIREBASE_CREDENTIALS_PATH', 'firebase-credentials.json'))
@@ -61,6 +64,7 @@ class SelfCheckoutApp:
         )
         
         self.video_streamer = VideoStreamer()
+        self.streaming_server = StreamingServer()
         self.processing_thread = None
         self.is_processing = False
 
@@ -91,10 +95,188 @@ class SelfCheckoutApp:
 
         @self.app.route('/video_feed')
         def video_feed():
-            return Response(
-                self.video_streamer.generate_frames(),
-                mimetype='multipart/x-mixed-replace; boundary=frame'
-            )
+            try:
+                return Response(
+                    self.video_streamer.generate_frames(),
+                    mimetype='multipart/x-mixed-replace; boundary=frame',
+                    headers={
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache',
+                        'Expires': '0',
+                        'Connection': 'keep-alive',
+                        'Access-Control-Allow-Origin': '*'
+                    }
+                )
+            except Exception as e:
+                print(f"Video feed error: {e}")
+                return Response(
+                    "Video feed error",
+                    status=500,
+                    mimetype='text/plain'
+                )
+
+        @self.app.route('/video_stream')
+        def video_stream():
+            """Proper MJPEG video stream for video element"""
+            try:
+                return Response(
+                    self.streaming_server.generate_mjpeg_stream(),
+                    mimetype='multipart/x-mixed-replace; boundary=frame',
+                    headers={
+                        'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
+                        'Pragma': 'no-cache',
+                        'Expires': '0',
+                        'Connection': 'keep-alive',
+                        'Access-Control-Allow-Origin': '*',
+                        'Access-Control-Allow-Methods': 'GET',
+                        'Access-Control-Allow-Headers': 'Content-Type'
+                    }
+                )
+            except Exception as e:
+                print(f"Video stream error: {e}")
+                return Response("Stream error", status=500)
+
+        @self.app.route('/current_frame')
+        def current_frame():
+            """Single frame fallback"""
+            try:
+                frame_data = self.streaming_server.generate_single_frame()
+                if frame_data is None:
+                    return Response("Frame generation failed", status=500)
+                
+                response = Response(
+                    frame_data,
+                    mimetype='image/jpeg',
+                    headers={
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache',
+                        'Expires': '0',
+                        'Access-Control-Allow-Origin': '*'
+                    }
+                )
+                return response
+                
+            except Exception as e:
+                print(f"Current frame error: {e}")
+                return Response("Frame error", status=500)
+
+        @self.app.route('/debug')
+        def debug_info():
+            """Debug endpoint untuk check backend status"""
+            try:
+                return jsonify({
+                    'camera_available': self.camera.is_available(),
+                    'camera_running': self.camera.is_running,
+                    'processing_active': self.is_processing,
+                    'frame_count': getattr(self.streaming_server, 'frame_count', 0),
+                    'video_streamer_active': self.video_streamer.is_active,
+                    'simulation_mode': self.detector_manager.simulation_mode,
+                    'detector_scanning': self.detector_manager.is_scanning,
+                    'timestamp': time.time()
+                })
+            except Exception as e:
+                return jsonify({'error': str(e)}), 500
+
+        @self.app.route('/test_stream')
+        def test_stream():
+            """Test page untuk debug streaming"""
+            return '''
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Video Stream Test</title>
+                <style>
+                    body { font-family: Arial; margin: 20px; background: #f0f0f0; }
+                    .container { max-width: 800px; margin: 0 auto; }
+                    .test-section { margin: 20px 0; padding: 20px; background: white; border-radius: 8px; }
+                    video, img, iframe { max-width: 100%; height: 300px; border: 2px solid #ccc; }
+                    .status { padding: 10px; margin: 10px 0; border-radius: 4px; }
+                    .success { background: #d4edda; color: #155724; }
+                    .error { background: #f8d7da; color: #721c24; }
+                    button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h1>🔍 Video Stream Debug Test</h1>
+                    
+                    <div class="test-section">
+                        <h3>1. Backend Status</h3>
+                        <div id="status">Loading...</div>
+                        <button onclick="checkStatus()">Refresh Status</button>
+                    </div>
+                    
+                    <div class="test-section">
+                        <h3>2. Native Video Element Test</h3>
+                        <video id="nativeVideo" autoplay muted playsinline controls>
+                            <source src="/video_stream" type="multipart/x-mixed-replace">
+                            Your browser does not support video streaming.
+                        </video>
+                        <div id="videoStatus" class="status">Waiting...</div>
+                    </div>
+                    
+                    <div class="test-section">
+                        <h3>3. IMG Tag Test (Single Frame)</h3>
+                        <img id="imgTest" src="/current_frame" alt="Single frame test">
+                        <div id="imgStatus" class="status">Loading...</div>
+                        <button onclick="refreshImage()">Refresh Image</button>
+                    </div>
+                    
+                    <div class="test-section">
+                        <h3>4. Iframe Test (MJPEG)</h3>
+                        <iframe id="iframeTest" src="/video_feed"></iframe>
+                        <div id="iframeStatus" class="status">Loading...</div>
+                    </div>
+                </div>
+
+                <script>
+                async function checkStatus() {
+                    try {
+                        const response = await fetch('/debug');
+                        const data = await response.json();
+                        document.getElementById('status').innerHTML = 
+                            '<div class="success"><pre>' + JSON.stringify(data, null, 2) + '</pre></div>';
+                    } catch (error) {
+                        document.getElementById('status').innerHTML = 
+                            '<div class="error">Error: ' + error.message + '</div>';
+                    }
+                }
+
+                function refreshImage() {
+                    const img = document.getElementById('imgTest');
+                    img.src = '/current_frame?t=' + Date.now();
+                }
+
+                // Video event listeners
+                const video = document.getElementById('nativeVideo');
+                video.addEventListener('loadstart', () => {
+                    document.getElementById('videoStatus').innerHTML = '<div class="status">Video loading started...</div>';
+                });
+                video.addEventListener('canplay', () => {
+                    document.getElementById('videoStatus').innerHTML = '<div class="success">✅ Video can play!</div>';
+                });
+                video.addEventListener('error', (e) => {
+                    document.getElementById('videoStatus').innerHTML = '<div class="error">❌ Video error: ' + e.message + '</div>';
+                });
+                video.addEventListener('stalled', () => {
+                    document.getElementById('videoStatus').innerHTML = '<div class="error">⚠️ Video stalled</div>';
+                });
+
+                // Image event listeners
+                document.getElementById('imgTest').addEventListener('load', () => {
+                    document.getElementById('imgStatus').innerHTML = '<div class="success">✅ Image loaded</div>';
+                });
+                document.getElementById('imgTest').addEventListener('error', () => {
+                    document.getElementById('imgStatus').innerHTML = '<div class="error">❌ Image failed to load</div>';
+                });
+
+                // Auto-refresh status every 5 seconds
+                setInterval(checkStatus, 5000);
+                checkStatus();
+                </script>
+            </body>
+            </html>
+            '''
 
     def register_socket_events(self):
         @self.socketio.on('connect')
@@ -509,15 +691,29 @@ class SelfCheckoutApp:
                 print("Configuration reset to defaults")
 
     def processing_loop(self):
+        frame_count = 0
         while self.is_processing:
             try:
+                frame_count += 1
+                
+                # Debug log every 100 frames
+                if frame_count % 100 == 0:
+                    print(f"Processing loop: frame {frame_count}, camera available: {self.camera.is_available()}")
+                
+                processed_frame = None
+                
+                # Always update video streamer with a frame, even if camera is not available
                 if self.camera.is_available():
                     success, frame = self.camera.read()
                     
                     if success and frame is not None:
+                        if frame_count % 100 == 0:
+                            print(f"Camera frame read successful, shape: {frame.shape}")
+                        
                         frame_width, frame_height = self.camera.get_dimensions()
                         processed_frame = self.detector_manager.process_frame(frame, frame_width, frame_height)
                         self.video_streamer.update_frame(processed_frame)
+                        self.streaming_server.update_frame(processed_frame)  # Feed to streaming server
                         
                         if self.detector_manager.is_scanning:
                             self.socketio.emit('cart_update', {
@@ -525,36 +721,142 @@ class SelfCheckoutApp:
                                 'total': self.detector_manager.calculate_total()
                             })
                     else:
-                        error_frame = self._create_error_frame("Camera read failed")
-                        self.video_streamer.update_frame(error_frame)
+                        # Camera available but read failed
+                        print(f"Camera read failed at frame {frame_count}")
+                        processed_frame = self._create_error_frame("Camera read failed - check connection")
+                        self.video_streamer.update_frame(processed_frame)
+                        self.streaming_server.update_frame(processed_frame)
                         
                 else:
-                    if not self.camera.start():
-                        error_frame = self._create_error_frame("Camera not available")
-                        self.video_streamer.update_frame(error_frame)
-                        time.sleep(1)
-                        continue
+                    # Camera not available - try to start it
+                    if frame_count % 100 == 0:
+                        print("Camera not available, attempting to start...")
+                    
+                    if self.camera.start():
+                        print("Camera successfully started in processing loop")
+                    else:
+                        # Show simulation mode available message
+                        if self.detector_manager.simulation_mode:
+                            processed_frame = self._create_simulation_frame()
+                            self.video_streamer.update_frame(processed_frame)
+                            self.streaming_server.update_frame(processed_frame)
+                        else:
+                            processed_frame = self._create_error_frame("Camera not available - Enable simulation mode for testing")
+                            self.video_streamer.update_frame(processed_frame)
+                            self.streaming_server.update_frame(processed_frame)
                 
-                time.sleep(0.033)
+                # Emit frame via Socket.IO for real-time streaming
+                if processed_frame is not None:
+                    self._emit_frame_via_socket(processed_frame)
+                
+                time.sleep(0.033)  # 30 FPS for real-time feel
                 
             except Exception as e:
                 print(f"Processing error: {e}")
-                error_frame = self._create_error_frame(f"Error: {str(e)}")
+                error_frame = self._create_error_frame(f"Processing Error: {str(e)}")
                 self.video_streamer.update_frame(error_frame)
                 time.sleep(0.1)
 
     def _create_error_frame(self, message):
         frame = np.zeros((480, 640, 3), dtype=np.uint8)
-        frame[:] = [40, 20, 20]
+        frame[:] = [40, 20, 20]  # Dark red background
         
+        # Add title
         font = cv2.FONT_HERSHEY_SIMPLEX
-        text_size = cv2.getTextSize(message, font, 0.7, 2)[0]
-        text_x = (640 - text_size[0]) // 2
-        text_y = 240
+        title = "Camera Feed Error"
+        title_size = cv2.getTextSize(title, font, 0.8, 2)[0]
+        title_x = (640 - title_size[0]) // 2
+        title_y = 180
+        cv2.putText(frame, title, (title_x, title_y), font, 0.8, (100, 100, 255), 2)
         
-        cv2.putText(frame, message, (text_x, text_y), font, 0.7, (100, 100, 255), 2)
+        # Add main message (split into multiple lines if too long)
+        words = message.split(' ')
+        lines = []
+        current_line = ""
+        
+        for word in words:
+            test_line = current_line + " " + word if current_line else word
+            if len(test_line) > 45:  # Max characters per line
+                if current_line:
+                    lines.append(current_line)
+                current_line = word
+            else:
+                current_line = test_line
+        
+        if current_line:
+            lines.append(current_line)
+        
+        # Draw message lines
+        y_offset = 220
+        for line in lines:
+            text_size = cv2.getTextSize(line, font, 0.6, 2)[0]
+            text_x = (640 - text_size[0]) // 2
+            cv2.putText(frame, line, (text_x, y_offset), font, 0.6, (200, 200, 200), 2)
+            y_offset += 30
+        
+        # Add suggestion
+        suggestion = "Try enabling Simulation Mode for testing"
+        sugg_size = cv2.getTextSize(suggestion, font, 0.5, 1)[0]
+        sugg_x = (640 - sugg_size[0]) // 2
+        cv2.putText(frame, suggestion, (sugg_x, y_offset + 40), font, 0.5, (150, 150, 150), 1)
         
         return frame
+    
+    def _create_simulation_frame(self):
+        frame = np.zeros((480, 640, 3), dtype=np.uint8)
+        frame[:] = [20, 40, 20]  # Dark green background
+        
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        
+        # Title
+        title = "Simulation Mode Active"
+        title_size = cv2.getTextSize(title, font, 0.8, 2)[0]
+        title_x = (640 - title_size[0]) // 2
+        title_y = 180
+        cv2.putText(frame, title, (title_x, title_y), font, 0.8, (100, 255, 100), 2)
+        
+        # Instructions
+        instructions = [
+            "Camera not available - Using simulation",
+            "Use Simulation Controls to add virtual objects",
+            "Detection will work with simulated objects"
+        ]
+        
+        y_offset = 220
+        for instruction in instructions:
+            text_size = cv2.getTextSize(instruction, font, 0.5, 1)[0]
+            text_x = (640 - text_size[0]) // 2
+            cv2.putText(frame, instruction, (text_x, y_offset), font, 0.5, (200, 255, 200), 1)
+            y_offset += 25
+        
+        # Add simulation indicator
+        cv2.circle(frame, (320, 350), 30, (100, 255, 100), 3)
+        cv2.putText(frame, "SIM", (305, 358), font, 0.7, (100, 255, 100), 2)
+        
+        return frame
+    
+    def _emit_frame_via_socket(self, frame):
+        """Emit frame via Socket.IO as base64 encoded JPEG"""
+        try:
+            # Encode frame to JPEG
+            encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 75]  # Lower quality for faster transmission
+            success, buffer = cv2.imencode('.jpg', frame, encode_param)
+            
+            if success:
+                # Convert to base64 string
+                import base64
+                frame_base64 = base64.b64encode(buffer).decode('utf-8')
+                
+                # Emit to all connected clients
+                self.socketio.emit('video_frame', {
+                    'frame': frame_base64,
+                    'timestamp': time.time(),
+                    'width': frame.shape[1],
+                    'height': frame.shape[0]
+                })
+            
+        except Exception as e:
+            print(f"Error emitting frame via socket: {e}")
 
     def start_processing(self):
         if self.is_processing:
@@ -580,10 +882,31 @@ class SelfCheckoutApp:
         print(f"Frontend should be running on http://localhost:{os.getenv('PORT', 3002)}")
         print(f"Video feed available at http://{self.host}:{self.port}/video_feed")
         
+        # Initialize video streamer with default frame
+        default_frame = self.video_streamer._create_default_frame()
+        self.video_streamer.update_frame(default_frame)
+        
+        # Try to start camera BEFORE starting processing loop
+        camera_started = self.camera.start()
+        if not camera_started:
+            print("Warning: Camera not available. Use simulation mode for testing.")
+            # Show camera not available frame
+            error_frame = self._create_error_frame("Camera not available - Enable simulation mode")
+            self.video_streamer.update_frame(error_frame)
+        
+        # Start processing loop after camera initialization
         self.start_processing()
         
         try:
-            self.socketio.run(self.app, host=self.host, port=self.port, debug=self.debug, allow_unsafe_werkzeug=True)
+            # Disable auto-reloading to prevent double initialization and blocking
+            self.socketio.run(
+                self.app, 
+                host=self.host, 
+                port=self.port, 
+                debug=self.debug, 
+                use_reloader=False,  # Disable auto-reloading
+                allow_unsafe_werkzeug=True
+            )
         finally:
             self.stop_processing()
 

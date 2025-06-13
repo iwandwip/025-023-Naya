@@ -11,6 +11,9 @@ class VideoStreamer:
         self.is_active = False
         self.frame_ready = threading.Event()
         self.default_frame = self._create_default_frame()
+        # Initialize with default frame
+        self.frame = self.default_frame.copy()
+        self.frame_ready.set()
         
     def update_frame(self, frame):
         if frame is not None:
@@ -82,6 +85,7 @@ class VideoStreamer:
     
     def generate_frames(self):
         self.is_active = True
+        frame_count = 0
         
         while self.is_active:
             try:
@@ -90,11 +94,21 @@ class VideoStreamer:
                 if frame is None:
                     frame = self.default_frame.copy()
                 
-                encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 80]
+                # Add frame counter for debugging
+                frame_count += 1
+                if frame_count % 100 == 0:
+                    print(f"Video streamer: {frame_count} frames sent")
+                
+                # Encode with good quality
+                encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 85]
                 success, buffer = cv2.imencode('.jpg', frame, encode_param)
                 
                 if not success:
-                    continue
+                    print("Frame encoding failed")
+                    # Create a simple error frame
+                    error_frame = np.zeros((480, 640, 3), dtype=np.uint8)
+                    error_frame[:] = [50, 50, 50]
+                    success, buffer = cv2.imencode('.jpg', error_frame, encode_param)
                 
                 frame_bytes = buffer.tobytes()
                 
@@ -103,10 +117,23 @@ class VideoStreamer:
                        b'Content-Length: ' + str(len(frame_bytes)).encode() + b'\r\n'
                        b'\r\n' + frame_bytes + b'\r\n')
                 
-                time.sleep(0.05)
+                time.sleep(0.066)  # ~15 FPS - slower for stability
                 
             except Exception as e:
                 print(f"Video streaming error: {e}")
+                # Send error frame
+                try:
+                    error_frame = np.zeros((480, 640, 3), dtype=np.uint8)
+                    error_frame[:] = [50, 50, 50]
+                    success, buffer = cv2.imencode('.jpg', error_frame)
+                    if success:
+                        frame_bytes = buffer.tobytes()
+                        yield (b'--frame\r\n'
+                               b'Content-Type: image/jpeg\r\n'
+                               b'Content-Length: ' + str(len(frame_bytes)).encode() + b'\r\n'
+                               b'\r\n' + frame_bytes + b'\r\n')
+                except:
+                    pass
                 time.sleep(0.1)
     
     def stop(self):

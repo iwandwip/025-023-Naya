@@ -443,15 +443,30 @@ class DetectorManager:
     def process_frame(self, frame, frame_width, frame_height):
         if frame is None:
             blank = np.zeros((480, 640, 3), dtype=np.uint8)
+            blank[:] = [30, 30, 30]  # Dark gray
+            cv2.putText(blank, "No Camera Frame", (200, 240), cv2.FONT_HERSHEY_SIMPLEX, 1, (100, 100, 100), 2)
             return blank
 
-        if self.is_scanning:
-            self.detector.product_catalog = self.product_manager.get_products()
+        try:
+            # Ensure frame is valid
+            if len(frame.shape) != 3 or frame.shape[2] != 3:
+                print(f"Invalid frame shape: {frame.shape}")
+                return frame
+            
+            # Add timestamp and frame info for debugging
+            debug_frame = frame.copy()
+            cv2.putText(debug_frame, f"Live Feed: {frame_width}x{frame_height}", 
+                       (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+            cv2.putText(debug_frame, f"Mode: {'SCAN' if self.is_scanning else 'READY'}", 
+                       (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+            
+            if self.is_scanning:
+                self.detector.product_catalog = self.product_manager.get_products()
 
-            if self.simulation_mode:
-                processed_frame, detected_objects = self._process_simulated_objects(frame, frame_width, frame_height)
-            else:
-                processed_frame, detected_objects = self.detector.detect_objects(frame)
+                if self.simulation_mode:
+                    processed_frame, detected_objects = self._process_simulated_objects(debug_frame, frame_width, frame_height)
+                else:
+                    processed_frame, detected_objects = self.detector.detect_objects(debug_frame)
 
                 current_time = time.time()
                 current_detections = {}
@@ -500,25 +515,34 @@ class DetectorManager:
                 self.last_detections = current_detections
                 self._cleanup_old_objects(current_time)
 
-        else:
-            processed_frame = frame.copy()
+            else:
+                processed_frame = debug_frame.copy()
 
-            if self.simulation_mode:
-                self._process_simulated_objects(processed_frame, frame_width, frame_height)
+                if self.simulation_mode:
+                    self._process_simulated_objects(processed_frame, frame_width, frame_height)
 
-        processed_frame = self._draw_zone_overlay(processed_frame, frame_width, frame_height)
+            processed_frame = self._draw_zone_overlay(processed_frame, frame_width, frame_height)
+            
+            # Add overlay text and zone
+            mode_text = "🎮 SIMULATION MODE" if self.simulation_mode else "📹 REAL MODE"
+            settings_text = f"{mode_text} | Zone: {self.zone_start_percent}%, Width: {self.zone_width_percent}%"
+            cv2.putText(processed_frame, settings_text, (10, frame_height - 20),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
-        mode_text = "🎮 SIMULATION MODE" if self.simulation_mode else "📹 REAL MODE"
-        settings_text = f"{mode_text} | Zone: {self.zone_start_percent}%, Width: {self.zone_width_percent}%"
-        cv2.putText(processed_frame, settings_text, (10, frame_height - 20),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+            objects_in_zone_count = sum(1 for in_zone in self.objects_in_zone.values() if in_zone)
+            tracking_text = f"Objects in zone: {objects_in_zone_count} | Simulated objects: {len(self.simulated_objects)}"
+            cv2.putText(processed_frame, tracking_text, (10, frame_height - 50),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
-        objects_in_zone_count = sum(1 for in_zone in self.objects_in_zone.values() if in_zone)
-        tracking_text = f"Objects in zone: {objects_in_zone_count} | Simulated objects: {len(self.simulated_objects)}"
-        cv2.putText(processed_frame, tracking_text, (10, frame_height - 50),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
-
-        return processed_frame
+            return processed_frame
+            
+        except Exception as e:
+            print(f"Error in process_frame: {e}")
+            # Return debug frame with error message
+            error_frame = debug_frame.copy() if 'debug_frame' in locals() else frame.copy()
+            cv2.putText(error_frame, f"Processing Error: {str(e)[:50]}", 
+                       (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+            return error_frame
 
     def get_cart(self):
         return self.detector.get_cart()
