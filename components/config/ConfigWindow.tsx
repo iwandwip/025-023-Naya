@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useSocket } from '@/hooks/useSocket';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import DraggableWindow from '@/components/ui/draggable-window';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
@@ -47,21 +47,26 @@ export default function ConfigWindow() {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" className="flex items-center gap-2">
-          <Settings className="h-4 w-4" />
-          Configuration
-        </Button>
-      </DialogTrigger>
+    <>
+      <Button 
+        variant="outline" 
+        className="flex items-center gap-2"
+        onClick={() => setOpen(true)}
+      >
+        <Settings className="h-4 w-4" />
+        Configuration
+      </Button>
       
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Settings className="h-5 w-5" />
-            System Configuration
-          </DialogTitle>
-        </DialogHeader>
+      <DraggableWindow
+        title="System Configuration"
+        icon={<Settings className="h-5 w-5" />}
+        isOpen={open}
+        onClose={() => setOpen(false)}
+        defaultPosition={{ x: 50, y: 50 }}
+        defaultSize={{ width: '700px', height: '600px' }}
+        minWidth="500px"
+        minHeight="400px"
+      >
 
         <Tabs defaultValue="detection" className="w-full">
           <TabsList className="grid w-full grid-cols-3">
@@ -277,7 +282,7 @@ export default function ConfigWindow() {
             </Card>
           </TabsContent>
         </Tabs>
-      </DialogContent>
-    </Dialog>
+      </DraggableWindow>
+    </>
   );
 }

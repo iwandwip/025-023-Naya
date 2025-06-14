@@ -25,7 +25,7 @@ npm run dev:next     # Frontend only (port 3002)
 npm run dev:python   # Backend only (port 5002)
 
 # Alternative quick start
-./start-dev.bat      # Windows
+./start-dev.bat      # Windows - handles all setup automatically
 ./start-dev.sh       # Linux/Mac
 ```
 

@@ -17,6 +17,10 @@ export function useSocket() {
   const [isSimulationMode, setIsSimulationMode] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
   const [isClient, setIsClient] = useState(false);
+  const [cameraEnabled, setCameraEnabled] = useState(false);
+  const [cameraAvailable, setCameraAvailable] = useState(false);
+  const [yoloInitialized, setYoloInitialized] = useState(false);
+  const [yoloInitializing, setYoloInitializing] = useState(false);
 
   const showNotification = useCallback((message: string) => {
     setNotification(message);
@@ -136,6 +140,24 @@ export function useSocket() {
       showNotification("Configuration updated successfully");
     });
 
+    socketInstance.on('camera_status', (data) => {
+      setCameraEnabled(data.enabled);
+      setCameraAvailable(data.available);
+      if (data.message) {
+        showNotification(data.message);
+      }
+    });
+
+    socketInstance.on('yolo_status', (data) => {
+      setYoloInitialized(data.initialized);
+      setYoloInitializing(data.initializing);
+      if (data.error) {
+        showNotification(`YOLO Error: ${data.error}`);
+      } else if (data.initialized && !data.initializing) {
+        showNotification("YOLO model ready for detection");
+      }
+    });
+
     return () => {
       socketInstance.disconnect();
     };
@@ -215,6 +237,14 @@ export function useSocket() {
     socket?.emit('apply_preset_config', preset);
   }, [socket]);
 
+  const toggleCamera = useCallback((enabled: boolean) => {
+    socket?.emit('toggle_camera', { enabled });
+  }, [socket]);
+
+  const initializeYolo = useCallback(() => {
+    socket?.emit('initialize_yolo');
+  }, [socket]);
+
   return {
     socket,
     isConnected: isClient ? isConnected : false,
@@ -226,6 +256,10 @@ export function useSocket() {
     isScanning,
     isSimulationMode,
     notification,
+    cameraEnabled,
+    cameraAvailable,
+    yoloInitialized,
+    yoloInitializing,
     startScanning,
     stopScanning,
     removeItem,
@@ -244,6 +278,8 @@ export function useSocket() {
     moveToZone,
     updateConfig,
     applyPreset,
-    showNotification
+    showNotification,
+    toggleCamera,
+    initializeYolo
   };
 }

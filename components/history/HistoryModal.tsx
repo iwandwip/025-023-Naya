@@ -4,26 +4,40 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSocket } from '@/hooks/useSocket';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import DraggableWindow from '@/components/ui/draggable-window';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { History, Trash2, Calendar, DollarSign, ShoppingBag } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { History, Trash2, Calendar, DollarSign, ShoppingBag, AlertTriangle } from 'lucide-react';
 import { Transaction } from '@/lib/types';
 
 export default function HistoryModal() {
   const socket = useSocket();
   const [open, setOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
   const [dateRange, setDateRange] = useState({
     start: '',
     end: ''
   });
 
   const getTransactionHistory = useCallback(() => {
-    socket.getTransactionHistory();
-  }, [socket]);
+    if (socket?.getTransactionHistory) {
+      socket.getTransactionHistory();
+    }
+  }, [socket?.getTransactionHistory]);
 
   const setDefaultDates = useCallback(() => {
     const today = new Date();
@@ -42,10 +56,15 @@ export default function HistoryModal() {
 
   useEffect(() => {
     if (open) {
-      getTransactionHistory();
-      setDefaultDates();
+      // Only call once when modal opens, with a slight delay to prevent rapid calls
+      const timer = setTimeout(() => {
+        getTransactionHistory();
+        setDefaultDates();
+      }, 100);
+      
+      return () => clearTimeout(timer);
     }
-  }, [open, getTransactionHistory, setDefaultDates]);
+  }, [open]); // Remove getTransactionHistory from dependencies
 
   const handleDateFilter = () => {
     if (dateRange.start && dateRange.end) {
@@ -55,31 +74,48 @@ export default function HistoryModal() {
     }
   };
 
-  const handleDeleteTransaction = (id: string) => {
-    if (confirm('Are you sure you want to delete this transaction?')) {
-      socket.deleteTransaction(id);
+  const handleDeleteClick = (transaction: Transaction) => {
+    setTransactionToDelete(transaction);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (transactionToDelete) {
+      socket.deleteTransaction(transactionToDelete.id);
       setSelectedTransaction(null);
+      setTransactionToDelete(null);
+      setDeleteDialogOpen(false);
     }
+  };
+
+  const handleCancelDelete = () => {
+    setTransactionToDelete(null);
+    setDeleteDialogOpen(false);
   };
 
   const totalRevenue = socket.transactions.reduce((sum, t) => sum + t.total, 0);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" className="flex items-center gap-2">
-          <History className="h-4 w-4" />
-          History
-        </Button>
-      </DialogTrigger>
+    <>
+      <Button 
+        variant="outline" 
+        className="flex items-center gap-2"
+        onClick={() => setOpen(true)}
+      >
+        <History className="h-4 w-4" />
+        History
+      </Button>
       
-      <DialogContent className="max-w-6xl max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <History className="h-5 w-5" />
-            Transaction History
-          </DialogTitle>
-        </DialogHeader>
+      <DraggableWindow
+        title="Transaction History"
+        icon={<History className="h-5 w-5" />}
+        isOpen={open}
+        onClose={() => setOpen(false)}
+        defaultPosition={{ x: 100, y: 100 }}
+        defaultSize={{ width: '900px', height: '700px' }}
+        minWidth="600px"
+        minHeight="400px"
+      >
 
         <div className="space-y-6">
           <Card>
@@ -195,7 +231,7 @@ export default function HistoryModal() {
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => handleDeleteTransaction(selectedTransaction.id)}
+                      onClick={() => handleDeleteClick(selectedTransaction)}
                       className="text-red-500 hover:text-red-700"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -242,7 +278,51 @@ export default function HistoryModal() {
             )}
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </DraggableWindow>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-500" />
+              Delete Transaction
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <span>Are you sure you want to delete this transaction?</span>
+                {transactionToDelete && (
+                  <div className="bg-gray-50 p-3 rounded-md mt-3">
+                    <div className="text-sm font-medium">Transaction Details:</div>
+                    <div className="text-sm text-gray-600 mt-1">
+                      Date: {transactionToDelete.formatted_date || 'N/A'}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      Total: Rp {transactionToDelete.total.toLocaleString()}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      Items: {transactionToDelete.items?.length || 0}
+                    </div>
+                  </div>
+                )}
+                <div className="text-sm text-red-600 font-medium mt-3">
+                  This action cannot be undone.
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelDelete}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-red-500 hover:bg-red-600 text-white"
+            >
+              Delete Transaction
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

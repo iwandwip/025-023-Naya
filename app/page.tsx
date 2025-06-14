@@ -20,10 +20,10 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    if (isClient && socket.isConnected) {
+    if (isClient && socket.isConnected && socket.getProducts) {
       socket.getProducts();
     }
-  }, [isClient, socket.isConnected, socket.getProducts]);
+  }, [isClient, socket.isConnected]); // Remove socket.getProducts from dependencies
 
   if (!isClient) {
     return (
@@ -58,9 +58,9 @@ export default function HomePage() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <div className="lg:col-span-3">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-8rem)]">
+          <div className="lg:col-span-2">
             <ScannerView />
           </div>
           <div className="lg:col-span-1">

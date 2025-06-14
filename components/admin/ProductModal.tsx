@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSocket } from '@/hooks/useSocket';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import DraggableWindow from '@/components/ui/draggable-window';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -18,14 +18,21 @@ export default function ProductModal() {
   const [editProduct, setEditProduct] = useState<{ name: string; price: string } | null>(null);
 
   const getProducts = useCallback(() => {
-    socket.getProducts();
-  }, [socket]);
+    if (socket?.getProducts) {
+      socket.getProducts();
+    }
+  }, [socket?.getProducts]);
 
   useEffect(() => {
     if (open) {
-      getProducts();
+      // Add delay to prevent rapid calls
+      const timer = setTimeout(() => {
+        getProducts();
+      }, 100);
+      
+      return () => clearTimeout(timer);
     }
-  }, [open, getProducts]);
+  }, [open]); // Remove getProducts from dependencies
 
   const handleAddProduct = () => {
     if (newProduct.name && newProduct.price) {
@@ -50,21 +57,26 @@ export default function ProductModal() {
   const productEntries = Object.entries(socket.products);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" className="flex items-center gap-2">
-          <Package className="h-4 w-4" />
-          Products
-        </Button>
-      </DialogTrigger>
+    <>
+      <Button 
+        variant="outline" 
+        className="flex items-center gap-2"
+        onClick={() => setOpen(true)}
+      >
+        <Package className="h-4 w-4" />
+        Products
+      </Button>
       
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Package className="h-5 w-5" />
-            Product Management
-          </DialogTitle>
-        </DialogHeader>
+      <DraggableWindow
+        title="Product Management"
+        icon={<Package className="h-5 w-5" />}
+        isOpen={open}
+        onClose={() => setOpen(false)}
+        defaultPosition={{ x: 150, y: 150 }}
+        defaultSize={{ width: '800px', height: '600px' }}
+        minWidth="500px"
+        minHeight="400px"
+      >
 
         <Tabs defaultValue="list" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
@@ -196,7 +208,7 @@ export default function ProductModal() {
             </Card>
           </TabsContent>
         </Tabs>
-      </DialogContent>
-    </Dialog>
+      </DraggableWindow>
+    </>
   );
 }

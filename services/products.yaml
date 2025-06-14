@@ -7,5 +7,7 @@ products:
     price: 4000
   keju:
     price: 16600
+  person:
+    price: 20000
   sabun:
     price: 4000

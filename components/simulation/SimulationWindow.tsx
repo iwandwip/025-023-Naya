@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useSocket } from '@/hooks/useSocket';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import DraggableWindow from '@/components/ui/draggable-window';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -56,26 +56,27 @@ export default function SimulationWindow() {
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <div className="fixed bottom-4 right-4 z-50">
-          <Button 
-            className="bg-orange-500 hover:bg-orange-600 text-white shadow-lg"
-            onClick={() => setOpen(true)}
-          >
-            <Gamepad2 className="h-4 w-4 mr-2" />
-            Simulation Control
-          </Button>
-        </div>
-      </DialogTrigger>
+    <>
+      <div className="fixed bottom-4 right-4 z-50">
+        <Button 
+          className="bg-orange-500 hover:bg-orange-600 text-white shadow-lg"
+          onClick={() => setOpen(true)}
+        >
+          <Gamepad2 className="h-4 w-4 mr-2" />
+          Simulation Control
+        </Button>
+      </div>
       
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Gamepad2 className="h-5 w-5 text-orange-500" />
-            Simulation Mode Control Panel
-          </DialogTitle>
-        </DialogHeader>
+      <DraggableWindow
+        title="Simulation Mode Control Panel"
+        icon={<Gamepad2 className="h-5 w-5 text-orange-500" />}
+        isOpen={open}
+        onClose={() => setOpen(false)}
+        defaultPosition={{ x: 200, y: 200 }}
+        defaultSize={{ width: '800px', height: '650px' }}
+        minWidth="600px"
+        minHeight="500px"
+      >
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
@@ -262,7 +263,7 @@ export default function SimulationWindow() {
             </div>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </DraggableWindow>
+    </>
   );
 }

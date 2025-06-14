@@ -32,7 +32,7 @@ export default function VideoPlayer({ isConnected, isScanning, onLoad, onError }
 
   if (!isConnected) {
     return (
-      <div className="relative w-full h-96 rounded-lg border bg-gray-200 overflow-hidden flex items-center justify-center">
+      <div className="relative w-full aspect-[4/3] max-h-[60vh] rounded-lg border bg-gray-200 overflow-hidden flex items-center justify-center">
         <div className="text-center">
           <p className="text-gray-600 text-sm">❌ Server disconnected</p>
           <p className="text-xs text-gray-500 mt-1">Check backend connection</p>
@@ -42,7 +42,7 @@ export default function VideoPlayer({ isConnected, isScanning, onLoad, onError }
   }
 
   return (
-    <div className="relative w-full h-96 rounded-lg border bg-gray-100 overflow-hidden">
+    <div className="relative w-full aspect-[4/3] max-h-[60vh] rounded-lg border bg-gray-100 overflow-hidden">
       <iframe
         ref={iframeRef}
         src={streamUrl}
@@ -51,11 +51,15 @@ export default function VideoPlayer({ isConnected, isScanning, onLoad, onError }
           width: '100%',
           height: '100%',
           border: 'none',
-          background: '#f0f0f0'
+          background: '#f0f0f0',
+          objectFit: 'contain',
+          display: 'block'
         }}
         title="Live Video Feed"
         allow="camera"
         sandbox="allow-same-origin"
+        scrolling="no"
+        frameBorder="0"
       />
     </div>
   );

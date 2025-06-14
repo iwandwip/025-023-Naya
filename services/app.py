@@ -67,6 +67,10 @@ class SelfCheckoutApp:
         self.streaming_server = StreamingServer()
         self.processing_thread = None
         self.is_processing = False
+        self.camera_enabled = False  # Camera starts off by default
+        self.yolo_initialized = False
+        self.yolo_initializing = False
+        self.last_transaction_request = 0  # Throttle transaction requests
 
         self.register_routes()
         self.register_socket_events()
@@ -282,6 +286,15 @@ class SelfCheckoutApp:
         @self.socketio.on('connect')
         def handle_connect():
             print('Client connected')
+            # Send current states to client
+            self.socketio.emit('camera_status', {
+                'enabled': self.camera_enabled,
+                'available': self.camera.is_available()
+            })
+            self.socketio.emit('yolo_status', {
+                'initialized': self.yolo_initialized,
+                'initializing': self.yolo_initializing
+            })
 
         @self.socketio.on('disconnect')
         def handle_disconnect():
@@ -387,6 +400,14 @@ class SelfCheckoutApp:
 
         @self.socketio.on('get_transaction_history')
         def handle_get_transaction_history(data=None):
+            # Throttle requests - only allow one every 2 seconds
+            current_time = time.time()
+            if current_time - self.last_transaction_request < 2.0:
+                print("Transaction history request throttled")
+                return
+            
+            self.last_transaction_request = current_time
+            
             if not self.firestore_manager.is_connected():
                 self.socketio.emit('transaction_history', [])
                 return
@@ -690,6 +711,48 @@ class SelfCheckoutApp:
             if success:
                 print("Configuration reset to defaults")
 
+        @self.socketio.on('toggle_camera')
+        def handle_toggle_camera(data):
+            enabled = data.get('enabled', False)
+            self.camera_enabled = enabled
+            
+            if enabled:
+                if not self.yolo_initialized and not self.yolo_initializing:
+                    self._initialize_yolo()
+                
+                if self.yolo_initialized:
+                    camera_started = self.camera.start()
+                    if camera_started and not self.is_processing:
+                        self.start_processing()
+                    
+                    self.socketio.emit('camera_status', {
+                        'enabled': True,
+                        'available': camera_started
+                    })
+                    
+                    if camera_started:
+                        print("Camera enabled and started")
+                    else:
+                        print("Camera enabled but failed to start")
+                else:
+                    self.socketio.emit('camera_status', {
+                        'enabled': False,
+                        'available': False,
+                        'message': 'YOLO not initialized yet'
+                    })
+            else:
+                self.camera.stop()
+                self.socketio.emit('camera_status', {
+                    'enabled': False,
+                    'available': False
+                })
+                print("Camera disabled")
+
+        @self.socketio.on('initialize_yolo')
+        def handle_initialize_yolo():
+            if not self.yolo_initialized and not self.yolo_initializing:
+                self._initialize_yolo()
+
     def processing_loop(self):
         frame_count = 0
         while self.is_processing:
@@ -703,7 +766,7 @@ class SelfCheckoutApp:
                 processed_frame = None
                 
                 # Always update video streamer with a frame, even if camera is not available
-                if self.camera.is_available():
+                if self.camera_enabled and self.camera.is_available():
                     success, frame = self.camera.read()
                     
                     if success and frame is not None:
@@ -728,22 +791,34 @@ class SelfCheckoutApp:
                         self.streaming_server.update_frame(processed_frame)
                         
                 else:
-                    # Camera not available - try to start it
-                    if frame_count % 100 == 0:
-                        print("Camera not available, attempting to start...")
-                    
-                    if self.camera.start():
-                        print("Camera successfully started in processing loop")
-                    else:
-                        # Show simulation mode available message
-                        if self.detector_manager.simulation_mode:
-                            processed_frame = self._create_simulation_frame()
-                            self.video_streamer.update_frame(processed_frame)
-                            self.streaming_server.update_frame(processed_frame)
+                    # Camera disabled or not available
+                    if not self.camera_enabled:
+                        if not self.yolo_initialized:
+                            if self.yolo_initializing:
+                                processed_frame = self._create_loading_frame("Initializing YOLO model...")
+                            else:
+                                processed_frame = self._create_info_frame("Camera disabled", "Press camera button to enable")
                         else:
-                            processed_frame = self._create_error_frame("Camera not available - Enable simulation mode for testing")
-                            self.video_streamer.update_frame(processed_frame)
-                            self.streaming_server.update_frame(processed_frame)
+                            processed_frame = self._create_info_frame("Camera disabled", "YOLO ready. Press camera button to enable")
+                        self.video_streamer.update_frame(processed_frame)
+                        self.streaming_server.update_frame(processed_frame)
+                    else:
+                        # Camera enabled but not available - try to start it
+                        if frame_count % 100 == 0:
+                            print("Camera enabled but not available, attempting to start...")
+                        
+                        if self.camera.start():
+                            print("Camera successfully started in processing loop")
+                        else:
+                            # Show simulation mode available message
+                            if self.detector_manager.simulation_mode:
+                                processed_frame = self._create_simulation_frame()
+                                self.video_streamer.update_frame(processed_frame)
+                                self.streaming_server.update_frame(processed_frame)
+                            else:
+                                processed_frame = self._create_error_frame("Camera not available - Enable simulation mode for testing")
+                                self.video_streamer.update_frame(processed_frame)
+                                self.streaming_server.update_frame(processed_frame)
                 
                 # Emit frame via Socket.IO for real-time streaming
                 if processed_frame is not None:
@@ -835,6 +910,58 @@ class SelfCheckoutApp:
         
         return frame
     
+    def _create_loading_frame(self, message):
+        frame = np.zeros((480, 640, 3), dtype=np.uint8)
+        frame[:] = [30, 30, 60]  # Dark blue background
+        
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        
+        # Title
+        title = "Loading..."
+        title_size = cv2.getTextSize(title, font, 1.0, 2)[0]
+        title_x = (640 - title_size[0]) // 2
+        title_y = 180
+        cv2.putText(frame, title, (title_x, title_y), font, 1.0, (100, 150, 255), 2)
+        
+        # Message
+        msg_size = cv2.getTextSize(message, font, 0.7, 2)[0]
+        msg_x = (640 - msg_size[0]) // 2
+        cv2.putText(frame, message, (msg_x, 220), font, 0.7, (200, 200, 255), 2)
+        
+        # Loading animation
+        import time
+        dots = int((time.time() * 2) % 4)
+        loading_text = "Please wait" + "." * dots
+        loading_size = cv2.getTextSize(loading_text, font, 0.6, 1)[0]
+        loading_x = (640 - loading_size[0]) // 2
+        cv2.putText(frame, loading_text, (loading_x, 260), font, 0.6, (150, 150, 200), 1)
+        
+        return frame
+    
+    def _create_info_frame(self, title, message):
+        frame = np.zeros((480, 640, 3), dtype=np.uint8)
+        frame[:] = [20, 30, 20]  # Dark green background
+        
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        
+        # Title
+        title_size = cv2.getTextSize(title, font, 0.8, 2)[0]
+        title_x = (640 - title_size[0]) // 2
+        title_y = 180
+        cv2.putText(frame, title, (title_x, title_y), font, 0.8, (100, 200, 100), 2)
+        
+        # Message
+        msg_size = cv2.getTextSize(message, font, 0.6, 2)[0]
+        msg_x = (640 - msg_size[0]) // 2
+        cv2.putText(frame, message, (msg_x, 220), font, 0.6, (150, 255, 150), 2)
+        
+        # Camera icon
+        cv2.circle(frame, (320, 300), 40, (100, 200, 100), 3)
+        cv2.rectangle(frame, (300, 285), (340, 315), (100, 200, 100), 2)
+        cv2.circle(frame, (320, 300), 15, (100, 200, 100), -1)
+        
+        return frame
+    
     def _emit_frame_via_socket(self, frame):
         """Emit frame via Socket.IO as base64 encoded JPEG"""
         try:
@@ -857,6 +984,55 @@ class SelfCheckoutApp:
             
         except Exception as e:
             print(f"Error emitting frame via socket: {e}")
+
+    def _initialize_yolo(self):
+        """Initialize YOLO model in a separate thread"""
+        def init_yolo():
+            try:
+                self.yolo_initializing = True
+                self.socketio.emit('yolo_status', {
+                    'initialized': False,
+                    'initializing': True
+                })
+                
+                print("Initializing YOLO model...")
+                # The detector manager initialization includes YOLO loading
+                # This is already done in __init__, but we need to ensure it's ready
+                if hasattr(self.detector_manager, 'detector'):
+                    # Force model initialization if not already done
+                    success = True
+                    print("YOLO model initialized successfully")
+                else:
+                    success = False
+                    print("Failed to initialize YOLO model")
+                
+                self.yolo_initialized = success
+                self.yolo_initializing = False
+                
+                self.socketio.emit('yolo_status', {
+                    'initialized': success,
+                    'initializing': False
+                })
+                
+                if success:
+                    print("✅ YOLO ready for detection")
+                else:
+                    print("❌ YOLO initialization failed")
+                    
+            except Exception as e:
+                print(f"Error initializing YOLO: {e}")
+                self.yolo_initialized = False
+                self.yolo_initializing = False
+                self.socketio.emit('yolo_status', {
+                    'initialized': False,
+                    'initializing': False,
+                    'error': str(e)
+                })
+        
+        # Run initialization in background thread
+        init_thread = threading.Thread(target=init_yolo)
+        init_thread.daemon = True
+        init_thread.start()
 
     def start_processing(self):
         if self.is_processing:
@@ -886,15 +1062,15 @@ class SelfCheckoutApp:
         default_frame = self.video_streamer._create_default_frame()
         self.video_streamer.update_frame(default_frame)
         
-        # Try to start camera BEFORE starting processing loop
-        camera_started = self.camera.start()
-        if not camera_started:
-            print("Warning: Camera not available. Use simulation mode for testing.")
-            # Show camera not available frame
-            error_frame = self._create_error_frame("Camera not available - Enable simulation mode")
-            self.video_streamer.update_frame(error_frame)
+        # Initialize YOLO model first
+        print("Starting YOLO initialization...")
+        self._initialize_yolo()
         
-        # Start processing loop after camera initialization
+        # Don't start camera by default - wait for user to enable it
+        info_frame = self._create_info_frame("Camera disabled", "Press camera button to enable")
+        self.video_streamer.update_frame(info_frame)
+        
+        # Start processing loop
         self.start_processing()
         
         try:
