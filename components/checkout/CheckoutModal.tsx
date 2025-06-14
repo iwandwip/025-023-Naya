@@ -35,12 +35,12 @@ export default function CheckoutModal({ open, onOpenChange }: CheckoutModalProps
   if (showSuccess) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-        <div className="bg-white rounded-lg p-8 text-center space-y-4 mx-4 max-w-md w-full">
-          <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
-            <CheckCircle className="w-8 h-8 text-green-600" />
+        <div className="bg-card rounded-lg p-8 text-center space-y-4 mx-4 max-w-md w-full">
+          <div className="mx-auto w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+            <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900">Pembayaran Berhasil!</h2>
-          <p className="text-gray-600">Terima kasih atas pembelian Anda</p>
+          <h2 className="text-2xl font-bold text-foreground">Pembayaran Berhasil!</h2>
+          <p className="text-muted-foreground">Terima kasih atas pembelian Anda</p>
           <div className="w-12 h-1 bg-green-500 rounded mx-auto animate-pulse"></div>
         </div>
       </div>

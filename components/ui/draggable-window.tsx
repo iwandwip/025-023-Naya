@@ -18,6 +18,7 @@ interface DraggableWindowProps {
   minWidth?: string;
   minHeight?: string;
   resizable?: boolean;
+  noBackdrop?: boolean;
 }
 
 export default function DraggableWindow({
@@ -32,6 +33,7 @@ export default function DraggableWindow({
   minWidth = '400px',
   minHeight = '300px',
   resizable = true,
+  noBackdrop = false,
 }: DraggableWindowProps) {
   const [position, setPosition] = useState(defaultPosition);
   const [size, setSize] = useState(defaultSize);
@@ -103,16 +105,18 @@ export default function DraggableWindow({
   return (
     <>
       {/* Semi-transparent backdrop */}
-      <div 
-        className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40"
-        onClick={onClose}
-      />
+      {!noBackdrop && (
+        <div 
+          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40"
+          onClick={onClose}
+        />
+      )}
       
       {/* Draggable window */}
       <Card
         ref={windowRef}
         className={cn(
-          "fixed z-50 shadow-2xl bg-white/95 backdrop-blur-md border-gray-200",
+          "fixed z-50 shadow-2xl bg-card/95 backdrop-blur-md border",
           "transition-shadow duration-200",
           isDragging ? "shadow-3xl cursor-move" : "hover:shadow-2xl",
           isMaximized && "rounded-none",
@@ -133,7 +137,7 @@ export default function DraggableWindow({
         <div
           className={cn(
             "flex items-center justify-between p-4 border-b",
-            "bg-gradient-to-r from-gray-50 to-gray-100",
+            "bg-gradient-to-r from-muted/50 to-muted",
             "cursor-move select-none",
             isMaximized && "cursor-default"
           )}
@@ -141,7 +145,7 @@ export default function DraggableWindow({
         >
           <div className="flex items-center gap-2">
             {icon}
-            <h2 className="text-lg font-semibold">{title}</h2>
+            <h2 className="text-lg font-semibold text-foreground">{title}</h2>
           </div>
           
           <div className="window-controls flex items-center gap-1">
@@ -149,7 +153,7 @@ export default function DraggableWindow({
               variant="ghost"
               size="icon"
               onClick={toggleMaximize}
-              className="h-8 w-8 hover:bg-gray-200"
+              className="h-8 w-8 hover:bg-muted text-foreground"
             >
               {isMaximized ? (
                 <Minimize2 className="h-4 w-4" />
@@ -162,7 +166,7 @@ export default function DraggableWindow({
               variant="ghost"
               size="icon"
               onClick={onClose}
-              className="h-8 w-8 hover:bg-red-100 hover:text-red-600"
+              className="h-8 w-8 hover:bg-red-500/10 hover:text-red-600 text-foreground"
             >
               <X className="h-4 w-4" />
             </Button>
@@ -178,7 +182,7 @@ export default function DraggableWindow({
         {resizable && !isMaximized && (
           <div className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize">
             <svg
-              className="w-full h-full text-gray-400"
+              className="w-full h-full text-muted-foreground"
               viewBox="0 0 16 16"
               fill="currentColor"
             >

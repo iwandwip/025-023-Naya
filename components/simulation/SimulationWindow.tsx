@@ -76,6 +76,7 @@ export default function SimulationWindow() {
         defaultSize={{ width: '800px', height: '650px' }}
         minWidth="600px"
         minHeight="500px"
+        noBackdrop={true}
       >
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -169,8 +170,8 @@ export default function SimulationWindow() {
             </CardHeader>
             <CardContent>
               {simulatedObjectEntries.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <Gamepad2 className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                <div className="text-center py-8 text-muted-foreground">
+                  <Gamepad2 className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
                   <p>No virtual objects</p>
                   <p className="text-sm">Add objects to test detection</p>
                 </div>
@@ -183,7 +184,7 @@ export default function SimulationWindow() {
                           <Badge variant="outline" className="capitalize">
                             {obj.label}
                           </Badge>
-                          <p className="text-xs text-gray-500 mt-1">
+                          <p className="text-xs text-muted-foreground mt-1">
                             Position: ({obj.x}, {obj.y}) Size: {obj.width}×{obj.height}
                           </p>
                         </div>
@@ -191,7 +192,7 @@ export default function SimulationWindow() {
                           size="sm"
                           variant="ghost"
                           onClick={() => handleRemoveObject(objId)}
-                          className="text-red-500 hover:text-red-700"
+                          className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -220,7 +221,7 @@ export default function SimulationWindow() {
                           <Button
                             size="sm"
                             onClick={() => handleMoveToZone(objId)}
-                            className="bg-blue-500 hover:bg-blue-600 text-white"
+                            className="bg-blue-500 hover:bg-blue-600 text-white dark:bg-blue-600 dark:hover:bg-blue-700"
                           >
                             <Target className="h-3 w-3 mr-1" />
                             Zone
@@ -251,12 +252,12 @@ export default function SimulationWindow() {
           </Card>
         </div>
 
-        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+        <div className="bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
           <div className="flex items-start gap-3">
-            <Gamepad2 className="h-5 w-5 text-orange-600 mt-0.5" />
+            <Gamepad2 className="h-5 w-5 text-orange-600 dark:text-orange-400 mt-0.5" />
             <div>
-              <h4 className="font-medium text-orange-900">Simulation Mode Instructions</h4>
-              <p className="text-sm text-orange-700 mt-1">
+              <h4 className="font-medium text-orange-900 dark:text-orange-100">Simulation Mode Instructions</h4>
+              <p className="text-sm text-orange-700 dark:text-orange-300 mt-1">
                 Add virtual objects to test the detection system without real products. 
                 Use movement controls to simulate objects passing through the counting zone.
               </p>

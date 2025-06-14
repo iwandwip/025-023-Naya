@@ -49,8 +49,8 @@ export default function ScannerView() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="w-full h-96 bg-gray-100 rounded-lg border flex items-center justify-center">
-            <div className="text-gray-500">Loading camera feed...</div>
+          <div className="w-full h-96 bg-muted rounded-lg border flex items-center justify-center">
+            <div className="text-muted-foreground">Loading camera feed...</div>
           </div>
         </CardContent>
       </Card>
@@ -93,9 +93,6 @@ export default function ScannerView() {
               </Badge>
             )}
             
-            <Badge variant="outline" className="text-xs">
-              iframe method
-            </Badge>
           </div>
         </div>
       </CardHeader>
@@ -109,7 +106,7 @@ export default function ScannerView() {
           
           {socket.isSimulationMode && (
             <div className="absolute top-2 left-2">
-              <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-300">
+              <Badge variant="outline" className="bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200 border-orange-300 dark:border-orange-700">
                 <Gamepad2 className="h-3 w-3 mr-1" />
                 Simulation Mode
               </Badge>
@@ -118,8 +115,8 @@ export default function ScannerView() {
           
           {socket.isConnected && (
             <div className="absolute top-2 right-2">
-              <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">
-                MJPEG Live
+              <Badge variant="outline" className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 border-green-300 dark:border-green-700">
+                VIDEO Live
               </Badge>
             </div>
           )}
