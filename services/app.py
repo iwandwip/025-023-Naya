@@ -56,7 +56,7 @@ class SelfCheckoutApp:
         )
         
         self.firestore_manager = FirestoreManager(os.getenv('FIREBASE_CREDENTIALS_PATH', 'firebase-credentials.json'))
-        self.product_manager = ProductManager(self.firestore_manager, os.getenv('PRODUCTS_CONFIG_PATH', 'products.yaml'))
+        self.product_manager = ProductManager(self.firestore_manager)
         self.camera = Camera(int(os.getenv('CAMERA_ID', 0)))
         self.detector_manager = DetectorManager(
             model_path=os.getenv('MODEL_PATH', 'models/yolov5s.pt'), 
@@ -363,7 +363,7 @@ class SelfCheckoutApp:
             if self.firestore_manager.is_connected():
                 transaction = self.firestore_manager.save_transaction(cart, total)
                 if transaction:
-                    print(f"Transaction saved to Firestore with ID: {transaction['id']}")
+                    print(f"Transaction saved to Firestore with IDs: {transaction['transaction_ids']}")
 
             self.detector_manager.clear_cart()
             self.socketio.emit('cart_update', {
@@ -397,6 +397,12 @@ class SelfCheckoutApp:
             if result:
                 self.socketio.emit('product_deleted', result)
                 print(f"Deleted product: {result['name']}")
+
+        @self.socketio.on('delete_all_products')
+        def handle_delete_all_products():
+            result = self.product_manager.delete_all_products()
+            self.socketio.emit('all_products_deleted', result)
+            print(f"Deleted all products: {result['deleted_count']} products removed")
 
         @self.socketio.on('get_transaction_history')
         def handle_get_transaction_history(data=None):
@@ -490,6 +496,22 @@ class SelfCheckoutApp:
                     'success': False,
                     'message': 'Failed to delete transaction'
                 })
+
+        @self.socketio.on('delete_all_transactions')
+        def handle_delete_all_transactions():
+            if not self.firestore_manager.is_connected():
+                self.socketio.emit('all_transactions_deleted', {
+                    'success': False,
+                    'message': 'Firestore not connected'
+                })
+                return
+
+            result = self.firestore_manager.delete_all_transactions()
+            self.socketio.emit('all_transactions_deleted', {
+                'success': True,
+                'deleted_count': result['deleted_count']
+            })
+            print(f"Deleted all transactions: {result['deleted_count']} transactions removed")
 
         @self.socketio.on('toggle_simulation')
         def handle_toggle_simulation(data):

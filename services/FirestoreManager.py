@@ -160,39 +160,54 @@ class FirestoreManager:
             print(f"Error deleting product from Firestore: {e}")
             return None
 
+    def delete_all_products(self):
+        if not self.is_connected():
+            return {'deleted_count': 0}
+
+        try:
+            products_ref = self.db.collection('products')
+            docs = products_ref.stream()
+            
+            deleted_count = 0
+            for doc in docs:
+                doc.reference.delete()
+                deleted_count += 1
+            
+            print(f"Deleted {deleted_count} products from Firestore")
+            return {'deleted_count': deleted_count}
+        except Exception as e:
+            print(f"Error deleting all products from Firestore: {e}")
+            return {'deleted_count': 0}
+
     def save_transaction(self, cart, total):
         if not self.is_connected():
             return None
 
         try:
-            transaction_id = str(uuid.uuid4())
-            transaction_ref = self.db.collection('transactions').document(transaction_id)
-
-            items = []
+            # Create separate transaction documents for each item
+            transaction_ids = []
+            
             for product_name, details in cart.items():
-                items.append({
+                transaction_id = str(uuid.uuid4())
+                transaction_ref = self.db.collection('transactions').document(transaction_id)
+                
+                transaction_data = {
                     'name': product_name,
                     'price': details['price'],
                     'quantity': details['quantity'],
-                    'subtotal': details['price'] * details['quantity']
-                })
-
-            transaction_data = {
-                'items': items,
-                'total': total,
-                'timestamp': firestore.SERVER_TIMESTAMP
-            }
-
-            transaction_ref.set(transaction_data)
-
-            transaction_doc = transaction_ref.get()
-            transaction_data = transaction_doc.to_dict()
-
+                    'subtotal': details['price'] * details['quantity'],
+                    'total': total,
+                    'timestamp': firestore.SERVER_TIMESTAMP
+                }
+                
+                transaction_ref.set(transaction_data)
+                transaction_ids.append(transaction_id)
+            
+            # Return the list of created transaction IDs
             return {
-                'id': transaction_id,
-                'items': transaction_data['items'],
-                'total': transaction_data['total'],
-                'timestamp': transaction_data['timestamp']
+                'transaction_ids': transaction_ids,
+                'total': total,
+                'timestamp': datetime.datetime.now()
             }
         except Exception as e:
             print(f"Error saving transaction to Firestore: {e}")
@@ -207,17 +222,39 @@ class FirestoreManager:
             query = transactions_ref.order_by('timestamp', direction=firestore.Query.DESCENDING).limit(limit)
             docs = query.stream()
 
-            transactions = []
+            # Group transactions by timestamp and total to reconstruct cart transactions
+            grouped_transactions = {}
+            
             for doc in docs:
                 data = doc.to_dict()
-                transactions.append({
-                    'id': doc.id,
-                    'items': data.get('items', []),
-                    'total': data.get('total', 0),
-                    'timestamp': data.get('timestamp')
-                })
-
-            return transactions
+                timestamp = data.get('timestamp')
+                total = data.get('total', 0)
+                
+                # Create a key from timestamp and total to group items
+                if timestamp:
+                    key = f"{timestamp}_{total}"
+                    
+                    if key not in grouped_transactions:
+                        grouped_transactions[key] = {
+                            'id': doc.id,  # Use first doc id as transaction id
+                            'items': [],
+                            'total': total,
+                            'timestamp': timestamp
+                        }
+                    
+                    # Add item to the transaction
+                    grouped_transactions[key]['items'].append({
+                        'name': data.get('name', ''),
+                        'price': data.get('price', 0),
+                        'quantity': data.get('quantity', 0),
+                        'subtotal': data.get('subtotal', 0)
+                    })
+            
+            # Convert to list and sort by timestamp
+            transactions = list(grouped_transactions.values())
+            transactions.sort(key=lambda x: x['timestamp'] if x['timestamp'] else datetime.datetime.min, reverse=True)
+            
+            return transactions[:limit]
         except Exception as e:
             print(f"Error retrieving transactions from Firestore: {e}")
             return []
@@ -239,16 +276,35 @@ class FirestoreManager:
             query = transactions_ref.where('timestamp', '>=', start_date).where('timestamp', '<', end_date)
             docs = query.stream()
 
-            transactions = []
+            # Group transactions by timestamp and total
+            grouped_transactions = {}
+            
             for doc in docs:
                 data = doc.to_dict()
-                transactions.append({
-                    'id': doc.id,
-                    'items': data.get('items', []),
-                    'total': data.get('total', 0),
-                    'timestamp': data.get('timestamp')
-                })
-
+                timestamp = data.get('timestamp')
+                total = data.get('total', 0)
+                
+                if timestamp:
+                    key = f"{timestamp}_{total}"
+                    
+                    if key not in grouped_transactions:
+                        grouped_transactions[key] = {
+                            'id': doc.id,
+                            'items': [],
+                            'total': total,
+                            'timestamp': timestamp
+                        }
+                    
+                    grouped_transactions[key]['items'].append({
+                        'name': data.get('name', ''),
+                        'price': data.get('price', 0),
+                        'quantity': data.get('quantity', 0),
+                        'subtotal': data.get('subtotal', 0)
+                    })
+            
+            transactions = list(grouped_transactions.values())
+            transactions.sort(key=lambda x: x['timestamp'] if x['timestamp'] else datetime.datetime.min, reverse=True)
+            
             return transactions
         except Exception as e:
             print(f"Error retrieving transactions by date range from Firestore: {e}")
@@ -272,11 +328,31 @@ class FirestoreManager:
             print(f"Error deleting transaction from Firestore: {e}")
             return False
 
+    def delete_all_transactions(self):
+        if not self.is_connected():
+            return {'deleted_count': 0}
+
+        try:
+            transactions_ref = self.db.collection('transactions')
+            docs = transactions_ref.stream()
+            
+            deleted_count = 0
+            for doc in docs:
+                doc.reference.delete()
+                deleted_count += 1
+            
+            print(f"Deleted {deleted_count} transactions from Firestore")
+            return {'deleted_count': deleted_count}
+        except Exception as e:
+            print(f"Error deleting all transactions from Firestore: {e}")
+            return {'deleted_count': 0}
+
     def get_transaction_by_id(self, transaction_id):
         if not self.is_connected():
             return None
 
         try:
+            # First, try to get the specific document
             transaction_ref = self.db.collection('transactions').document(transaction_id)
             transaction_doc = transaction_ref.get()
 
@@ -285,11 +361,29 @@ class FirestoreManager:
                 return None
 
             data = transaction_doc.to_dict()
+            timestamp = data.get('timestamp')
+            total = data.get('total', 0)
+            
+            # Find all items with the same timestamp and total
+            transactions_ref = self.db.collection('transactions')
+            query = transactions_ref.where('timestamp', '==', timestamp).where('total', '==', total)
+            docs = query.stream()
+            
+            items = []
+            for doc in docs:
+                item_data = doc.to_dict()
+                items.append({
+                    'name': item_data.get('name', ''),
+                    'price': item_data.get('price', 0),
+                    'quantity': item_data.get('quantity', 0),
+                    'subtotal': item_data.get('subtotal', 0)
+                })
+            
             return {
-                'id': transaction_doc.id,
-                'items': data.get('items', []),
-                'total': data.get('total', 0),
-                'timestamp': data.get('timestamp')
+                'id': transaction_id,
+                'items': items,
+                'total': total,
+                'timestamp': timestamp
             }
         except Exception as e:
             print(f"Error retrieving transaction from Firestore: {e}")

@@ -4,7 +4,6 @@ import numpy as np
 from PIL import Image
 import time
 import threading
-import yaml
 import os
 import warnings
 import sys
@@ -13,22 +12,20 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 
 
 class ProductDetector:
-    def __init__(self, model_path, config_path="products.yaml", camera_id=0):
+    def __init__(self, model_path, camera_id=0):
         self.model_path = model_path
-        self.config_path = config_path
         self.camera_id = camera_id
         self.model = None
         self.is_running = False
         self.detection_thread = None
         self.cart = {}
         self.frame = None
-        self.product_catalog = {}
+        self.product_catalog = {}  # Will be updated by DetectorManager
         self.frame_width = 0
         self.frame_height = 0
         self.counted_objects = {}
         self.counting_zone_start_percent = 70
         self.counting_zone_width_percent = 20
-        self.load_config()
         self.load_model()
         self.stop_flag = threading.Event()
 
@@ -45,18 +42,6 @@ class ProductDetector:
         self.processing_speed = 'balanced'
         self.model_type = 'yolov5s'
 
-    def load_config(self):
-        if os.path.exists(self.config_path):
-            with open(self.config_path, 'r') as file:
-                config = yaml.safe_load(file)
-                if config and 'products' in config:
-                    for product, details in config['products'].items():
-                        self.product_catalog[product.lower()] = details['price']
-                    print(f"Loaded {len(self.product_catalog)} products from config")
-                else:
-                    print("No products found in config, using empty catalog")
-        else:
-            print(f"Config file {self.config_path} not found, using empty catalog")
 
     def load_model(self):
         self.model = torch.hub.load('ultralytics/yolov5', 'custom', path=self.model_path, force_reload=True)

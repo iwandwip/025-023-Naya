@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "concurrently \"npm run dev:next\" \"npm run dev:python\"",
-    "dev:next": "next dev --turbopack -p 3002",
+    "dev:next": "next dev -p 3002",
     "dev:python": "cmd /c \"cd services && call venv\\Scripts\\activate.bat && python app.py\"",
     "build": "next build",
     "build:windows": "set NODE_OPTIONS=--max-old-space-size=4096 && next build",
@@ -21,7 +21,11 @@
     "env:check": "node -e \"console.log('Frontend PORT:', process.env.PORT); console.log('API URL:', process.env.NEXT_PUBLIC_API_BASE_URL);\"",
     "dev:full": "npm run env:setup && npm run dev",
     "kill:ports": "taskkill /IM node.exe /F",
-    "start:dev": "npm run kill:ports && npm run dev"
+    "start:dev": "npm run kill:ports && npm run dev",
+    "seeder": "cmd /c \"cd services && call venv\\Scripts\\activate.bat && python seeder.py\"",
+    "delete": "cmd /c \"cd services && call venv\\Scripts\\activate.bat && python delete_data.py\"",
+    "delete:products": "cmd /c \"cd services && call venv\\Scripts\\activate.bat && python delete_data.py --products\"",
+    "delete:history": "cmd /c \"cd services && call venv\\Scripts\\activate.bat && python delete_data.py --history\""
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.14",

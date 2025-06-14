@@ -35,9 +35,9 @@ export default function CartSidebar() {
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <ShoppingCart className="h-5 w-5" />
-              Shopping Cart
+              Keranjang Belanja
             </div>
-            <Badge variant="outline">{cartItems.length} items</Badge>
+            <Badge variant="outline">{cartItems.length} item</Badge>
           </CardTitle>
         </CardHeader>
         
@@ -45,8 +45,8 @@ export default function CartSidebar() {
           {isEmpty ? (
             <div className="text-center py-8">
               <Package className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500">Your cart is empty</p>
-              <p className="text-sm text-gray-400">Start scanning to add items</p>
+              <p className="text-gray-500">Keranjang Anda kosong</p>
+              <p className="text-sm text-gray-400">Mulai pemindaian untuk menambah item</p>
             </div>
           ) : (
             <>
@@ -102,7 +102,7 @@ export default function CartSidebar() {
                   disabled={isEmpty}
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
-                  Clear Cart
+                  Kosongkan Keranjang
                 </Button>
               </div>
             </>

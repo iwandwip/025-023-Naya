@@ -30,7 +30,7 @@ export default function HomePage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <Package className="h-12 w-12 text-blue-600 mx-auto mb-4 animate-spin" />
-          <p className="text-gray-600">Loading Self-Checkout System...</p>
+          <p className="text-gray-600">Memuat Sistem Self-Checkout...</p>
         </div>
       </div>
     );
@@ -44,8 +44,8 @@ export default function HomePage() {
             <div className="flex items-center">
               <Package className="h-8 w-8 text-blue-600 mr-3" />
               <div>
-                <h1 className="text-xl font-bold text-gray-900">Self-Checkout System</h1>
-                <p className="text-sm text-gray-500">AI-Powered Product Detection</p>
+                <h1 className="text-xl font-bold text-gray-900">Sistem Self-Checkout</h1>
+                <p className="text-sm text-gray-500">Deteksi Produk Bertenaga AI</p>
               </div>
             </div>
             

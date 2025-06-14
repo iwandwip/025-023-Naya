@@ -133,7 +133,7 @@ export default function ScannerView() {
             className="flex items-center gap-2"
           >
             <Power className="h-4 w-4" />
-            {socket.cameraEnabled ? "Turn Off Camera" : "Turn On Camera"}
+            {socket.cameraEnabled ? "Matikan Kamera" : "Hidupkan Kamera"}
           </Button>
           
           {!socket.yoloInitialized && !socket.yoloInitializing && (
@@ -144,7 +144,7 @@ export default function ScannerView() {
               className="flex items-center gap-2"
             >
               <Loader2 className="h-4 w-4" />
-              Initialize YOLO
+              Inisialisasi YOLO
             </Button>
           )}
           
@@ -154,7 +154,7 @@ export default function ScannerView() {
             className="flex items-center gap-2"
           >
             <Play className="h-4 w-4" />
-            Start Scanning
+            Mulai Pemindaian
           </Button>
           
           <Button
@@ -164,7 +164,7 @@ export default function ScannerView() {
             className="flex items-center gap-2"
           >
             <Square className="h-4 w-4" />
-            Stop Scanning
+            Hentikan Pemindaian
           </Button>
         </div>
 
@@ -173,10 +173,10 @@ export default function ScannerView() {
             <div className="flex items-center justify-between">
               <div>
                 <Label htmlFor="simulation-mode" className="text-sm font-medium">
-                  Simulation Mode
+                  Mode Simulasi
                 </Label>
                 <p className="text-xs text-gray-600 mt-1">
-                  Enable to test without real camera input
+                  Aktifkan untuk pengujian tanpa input kamera asli
                 </p>
               </div>
               <Switch
@@ -190,13 +190,13 @@ export default function ScannerView() {
 
         <div className="text-center text-sm text-gray-500">
           {socket.yoloInitializing ? (
-            <p>⏳ Initializing YOLO model... Please wait</p>
+            <p>⏳ Menginisialisasi model YOLO... Mohon tunggu</p>
           ) : !socket.yoloInitialized ? (
-            <p>🤖 YOLO not initialized. Click &ldquo;Initialize YOLO&rdquo; to start</p>
+            <p>🤖 YOLO belum diinisialisasi. Klik &ldquo;Inisialisasi YOLO&rdquo; untuk memulai</p>
           ) : !socket.cameraEnabled ? (
-            <p>📷 Camera is disabled. Click &ldquo;Turn On Camera&rdquo; to enable</p>
+            <p>📷 Kamera dinonaktifkan. Klik &ldquo;Hidupkan Kamera&rdquo; untuk mengaktifkan</p>
           ) : socket.isScanning ? (
-            <p>🔍 Scanning for products... Place items on the conveyor belt</p>
+            <p>🔍 Memindai produk... Letakkan item di sabuk konveyor</p>
           ) : !socket.isConnected ? (
             <p>❌ WebSocket disconnected. Check backend connection</p>
           ) : (

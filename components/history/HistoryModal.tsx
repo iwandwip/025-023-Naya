@@ -19,7 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { History, Trash2, Calendar, DollarSign, ShoppingBag, AlertTriangle } from 'lucide-react';
+import { History, Trash2, Calendar, DollarSign, ShoppingBag, AlertTriangle, Trash } from 'lucide-react';
 import { Transaction } from '@/lib/types';
 
 export default function HistoryModal() {
@@ -28,6 +28,7 @@ export default function HistoryModal() {
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
+  const [deleteAllDialogOpen, setDeleteAllDialogOpen] = useState(false);
   const [dateRange, setDateRange] = useState({
     start: '',
     end: ''
@@ -93,6 +94,11 @@ export default function HistoryModal() {
     setDeleteDialogOpen(false);
   };
 
+  const handleDeleteAllHistory = () => {
+    socket.deleteAllTransactions();
+    setDeleteAllDialogOpen(false);
+  };
+
   const totalRevenue = socket.transactions.reduce((sum, t) => sum + t.total, 0);
 
   return (
@@ -103,11 +109,11 @@ export default function HistoryModal() {
         onClick={() => setOpen(true)}
       >
         <History className="h-4 w-4" />
-        History
+        Riwayat
       </Button>
       
       <DraggableWindow
-        title="Transaction History"
+        title="Riwayat Transaksi"
         icon={<History className="h-5 w-5" />}
         isOpen={open}
         onClose={() => setOpen(false)}
@@ -122,7 +128,7 @@ export default function HistoryModal() {
             <CardContent className="pt-4">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
-                  <Label>Start Date</Label>
+                  <Label>Tanggal Mulai</Label>
                   <Input
                     type="date"
                     value={dateRange.start}
@@ -130,7 +136,7 @@ export default function HistoryModal() {
                   />
                 </div>
                 <div>
-                  <Label>End Date</Label>
+                  <Label>Tanggal Akhir</Label>
                   <Input
                     type="date"
                     value={dateRange.end}
@@ -160,21 +166,21 @@ export default function HistoryModal() {
               <CardContent className="pt-4 text-center">
                 <ShoppingBag className="h-8 w-8 text-blue-500 mx-auto mb-2" />
                 <div className="text-2xl font-bold">{socket.transactions.length}</div>
-                <div className="text-sm text-gray-600">Total Transactions</div>
+                <div className="text-sm text-gray-600">Total Transaksi</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-4 text-center">
                 <DollarSign className="h-8 w-8 text-green-500 mx-auto mb-2" />
                 <div className="text-2xl font-bold">Rp {totalRevenue.toLocaleString()}</div>
-                <div className="text-sm text-gray-600">Total Revenue</div>
+                <div className="text-sm text-gray-600">Total Pendapatan</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-4 text-center">
                 <Calendar className="h-8 w-8 text-purple-500 mx-auto mb-2" />
                 <div className="text-2xl font-bold">
-                  {socket.transactions.length > 0 ? Math.round(totalRevenue / socket.transactions.length) : 0}
+                  Rp {socket.transactions.length > 0 ? Math.round(totalRevenue / socket.transactions.length).toLocaleString() : 0}
                 </div>
                 <div className="text-sm text-gray-600">Avg. Transaction</div>
               </CardContent>
@@ -183,15 +189,26 @@ export default function HistoryModal() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Recent Transactions</CardTitle>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-sm">Transaksi Terbaru</CardTitle>
+                {socket.transactions.length > 0 && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setDeleteAllDialogOpen(true)}
+                    className="flex items-center gap-2"
+                  >
+                    <Trash className="h-4 w-4" />
+                    Hapus Semua
+                  </Button>
+                )}
               </CardHeader>
               <CardContent>
                 <div className="space-y-2 max-h-96 overflow-y-auto">
                   {socket.transactions.length === 0 ? (
                     <div className="text-center py-8">
                       <History className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                      <p className="text-gray-500">No transactions found</p>
+                      <p className="text-gray-500">Tidak ada transaksi ditemukan</p>
                     </div>
                   ) : (
                     socket.transactions.map((transaction) => (
@@ -205,7 +222,7 @@ export default function HistoryModal() {
                             {transaction.formatted_date || 'N/A'}
                           </p>
                           <p className="text-sm text-gray-600">
-                            {transaction.items?.length || 0} items
+                            {transaction.items?.length || 0} item
                           </p>
                         </div>
                         <div className="text-right">
@@ -285,40 +302,67 @@ export default function HistoryModal() {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-red-500" />
-              Delete Transaction
+              Hapus Transaksi
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-2">
-                <span>Are you sure you want to delete this transaction?</span>
+                <span>Apakah Anda yakin ingin menghapus transaksi ini?</span>
                 {transactionToDelete && (
                   <div className="bg-gray-50 p-3 rounded-md mt-3">
-                    <div className="text-sm font-medium">Transaction Details:</div>
+                    <div className="text-sm font-medium">Detail Transaksi:</div>
                     <div className="text-sm text-gray-600 mt-1">
-                      Date: {transactionToDelete.formatted_date || 'N/A'}
+                      Tanggal: {transactionToDelete.formatted_date || 'N/A'}
                     </div>
                     <div className="text-sm text-gray-600">
                       Total: Rp {transactionToDelete.total.toLocaleString()}
                     </div>
                     <div className="text-sm text-gray-600">
-                      Items: {transactionToDelete.items?.length || 0}
+                      Item: {transactionToDelete.items?.length || 0}
                     </div>
                   </div>
                 )}
                 <div className="text-sm text-red-600 font-medium mt-3">
-                  This action cannot be undone.
+                  Tindakan ini tidak dapat dibatalkan.
                 </div>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={handleCancelDelete}>
-              Cancel
+              Batal
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmDelete}
               className="bg-red-500 hover:bg-red-600 text-white"
             >
-              Delete Transaction
+              Hapus Transaksi
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={deleteAllDialogOpen} onOpenChange={setDeleteAllDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus Semua Riwayat Transaksi</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <span>Apakah Anda yakin ingin menghapus semua {socket.transactions.length} transaksi?</span>
+                <div className="bg-red-50 p-3 rounded-md mt-3">
+                  <div className="text-sm font-medium text-red-600">Tindakan ini tidak dapat dibatalkan!</div>
+                  <div className="text-sm text-red-500 mt-1">Semua riwayat transaksi akan dihapus secara permanen.</div>
+                  <div className="text-sm text-red-500">Total pendapatan yang akan dihapus: Rp {totalRevenue.toLocaleString()}</div>
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteAllHistory}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Hapus Semua Riwayat
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

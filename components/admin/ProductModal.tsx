@@ -9,13 +9,24 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Package, Plus, Edit2, Trash2 } from 'lucide-react';
+import { Package, Plus, Edit2, Trash2, AlertTriangle } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 export default function ProductModal() {
   const socket = useSocket();
   const [open, setOpen] = useState(false);
   const [newProduct, setNewProduct] = useState({ name: '', price: '' });
   const [editProduct, setEditProduct] = useState<{ name: string; price: string } | null>(null);
+  const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false);
 
   const getProducts = useCallback(() => {
     if (socket?.getProducts) {
@@ -54,6 +65,11 @@ export default function ProductModal() {
     }
   };
 
+  const handleDeleteAllProducts = () => {
+    socket.deleteAllProducts();
+    setShowDeleteAllDialog(false);
+  };
+
   const productEntries = Object.entries(socket.products);
 
   return (
@@ -64,11 +80,11 @@ export default function ProductModal() {
         onClick={() => setOpen(true)}
       >
         <Package className="h-4 w-4" />
-        Products
+        Produk
       </Button>
       
       <DraggableWindow
-        title="Product Management"
+        title="Manajemen Produk"
         icon={<Package className="h-5 w-5" />}
         isOpen={open}
         onClose={() => setOpen(false)}
@@ -80,20 +96,37 @@ export default function ProductModal() {
 
         <Tabs defaultValue="list" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="list">Product List</TabsTrigger>
-            <TabsTrigger value="add">Add Product</TabsTrigger>
+            <TabsTrigger value="list">Daftar Produk</TabsTrigger>
+            <TabsTrigger value="add">Tambah Produk</TabsTrigger>
           </TabsList>
 
           <TabsContent value="list" className="space-y-4">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <Badge variant="secondary">{productEntries.length} produk</Badge>
+              </div>
+              {productEntries.length > 0 && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setShowDeleteAllDialog(true)}
+                  className="flex items-center gap-2"
+                >
+                  <AlertTriangle className="h-4 w-4" />
+                  Hapus Semua Produk
+                </Button>
+              )}
+            </div>
+
             {editProduct && (
               <Card className="border-blue-200 bg-blue-50">
                 <CardHeader>
-                  <CardTitle className="text-sm">Edit Product</CardTitle>
+                  <CardTitle className="text-sm">Edit Produk</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label>Product Name</Label>
+                      <Label>Nama Produk</Label>
                       <Input
                         value={editProduct.name}
                         disabled
@@ -101,25 +134,25 @@ export default function ProductModal() {
                       />
                     </div>
                     <div>
-                      <Label>Price (Rp)</Label>
+                      <Label>Harga (Rp)</Label>
                       <Input
                         type="number"
                         value={editProduct.price}
                         onChange={(e) => setEditProduct({ ...editProduct, price: e.target.value })}
-                        placeholder="Enter new price"
+                        placeholder="Masukkan harga baru"
                       />
                     </div>
                   </div>
                   <div className="flex gap-2">
                     <Button onClick={handleUpdateProduct} size="sm">
-                      Save Changes
+                      Simpan Perubahan
                     </Button>
                     <Button 
                       onClick={() => setEditProduct(null)} 
                       variant="outline" 
                       size="sm"
                     >
-                      Cancel
+                      Batal
                     </Button>
                   </div>
                 </CardContent>
@@ -131,8 +164,8 @@ export default function ProductModal() {
                 <Card>
                   <CardContent className="text-center py-8">
                     <Package className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                    <p className="text-gray-500">No products found</p>
-                    <p className="text-sm text-gray-400">Add your first product to get started</p>
+                    <p className="text-gray-500">Tidak ada produk ditemukan</p>
+                    <p className="text-sm text-gray-400">Tambahkan produk pertama untuk memulai</p>
                   </CardContent>
                 </Card>
               ) : (
@@ -173,7 +206,7 @@ export default function ProductModal() {
               <CardHeader>
                 <CardTitle className="text-sm flex items-center gap-2">
                   <Plus className="h-4 w-4" />
-                  Add New Product
+                  Tambah Produk Baru
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -183,7 +216,7 @@ export default function ProductModal() {
                     <Input
                       value={newProduct.name}
                       onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
-                      placeholder="Enter product name"
+                      placeholder="Masukkan nama produk"
                     />
                   </div>
                   <div>
@@ -192,7 +225,7 @@ export default function ProductModal() {
                       type="number"
                       value={newProduct.price}
                       onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
-                      placeholder="Enter price"
+                      placeholder="Masukkan harga"
                     />
                   </div>
                 </div>
@@ -202,13 +235,39 @@ export default function ProductModal() {
                   disabled={!newProduct.name || !newProduct.price}
                 >
                   <Plus className="h-4 w-4 mr-2" />
-                  Add Product
+                  Tambah Produk
                 </Button>
               </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
       </DraggableWindow>
+
+      <AlertDialog open={showDeleteAllDialog} onOpenChange={setShowDeleteAllDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus Semua Produk</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <span>Apakah Anda yakin ingin menghapus semua {productEntries.length} produk?</span>
+                <div className="bg-red-50 p-3 rounded-md mt-3">
+                  <div className="text-sm font-medium text-red-600">Tindakan ini tidak dapat dibatalkan!</div>
+                  <div className="text-sm text-red-500 mt-1">Semua data produk akan dihapus secara permanen.</div>
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteAllProducts}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete All Products
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

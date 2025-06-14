@@ -39,8 +39,8 @@ export default function CheckoutModal({ open, onOpenChange }: CheckoutModalProps
           <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
             <CheckCircle className="w-8 h-8 text-green-600" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900">Payment Successful!</h2>
-          <p className="text-gray-600">Thank you for your purchase</p>
+          <h2 className="text-2xl font-bold text-gray-900">Pembayaran Berhasil!</h2>
+          <p className="text-gray-600">Terima kasih atas pembelian Anda</p>
           <div className="w-12 h-1 bg-green-500 rounded mx-auto animate-pulse"></div>
         </div>
       </div>
@@ -53,7 +53,7 @@ export default function CheckoutModal({ open, onOpenChange }: CheckoutModalProps
         <DialogHeader>
           <DialogTitle className="text-center flex items-center justify-center gap-2">
             <CreditCard className="h-5 w-5" />
-            Payment
+            Pembayaran
           </DialogTitle>
         </DialogHeader>
 
@@ -69,7 +69,7 @@ export default function CheckoutModal({ open, onOpenChange }: CheckoutModalProps
               </div>
             </div>
             <p className="text-sm text-gray-600">
-              Scan QR code with your mobile payment app
+              Pindai kode QR dengan aplikasi pembayaran mobile Anda
             </p>
           </div>
 
@@ -77,7 +77,7 @@ export default function CheckoutModal({ open, onOpenChange }: CheckoutModalProps
             <CardContent className="pt-4">
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span>Items:</span>
+                  <span>Item:</span>
                   <span>{Object.keys(socket.cart).length}</span>
                 </div>
                 <div className="flex justify-between text-lg font-bold text-green-600 border-t pt-2">
@@ -96,7 +96,7 @@ export default function CheckoutModal({ open, onOpenChange }: CheckoutModalProps
               disabled={socket.total <= 0}
             >
               <CheckCircle className="h-4 w-4 mr-2" />
-              Complete Payment
+              Selesaikan Pembayaran
             </Button>
             
             <Button 
@@ -104,7 +104,7 @@ export default function CheckoutModal({ open, onOpenChange }: CheckoutModalProps
               variant="outline" 
               className="w-full"
             >
-              Cancel
+              Batal
             </Button>
           </div>
         </div>

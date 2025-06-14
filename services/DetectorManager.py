@@ -9,7 +9,7 @@ import os
 class DetectorManager:
     def __init__(self, model_path, product_manager):
         from ProductDetector import ProductDetector
-        self.detector = ProductDetector(model_path=model_path, config_path=product_manager.config_path)
+        self.detector = ProductDetector(model_path=model_path)
         self.product_manager = product_manager
         self.is_scanning = False
         self.lock = threading.Lock()

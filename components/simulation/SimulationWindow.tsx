@@ -63,12 +63,12 @@ export default function SimulationWindow() {
           onClick={() => setOpen(true)}
         >
           <Gamepad2 className="h-4 w-4 mr-2" />
-          Simulation Control
+          Kontrol Simulasi
         </Button>
       </div>
       
       <DraggableWindow
-        title="Simulation Mode Control Panel"
+        title="Panel Kontrol Mode Simulasi"
         icon={<Gamepad2 className="h-5 w-5 text-orange-500" />}
         isOpen={open}
         onClose={() => setOpen(false)}
@@ -83,7 +83,7 @@ export default function SimulationWindow() {
             <CardHeader>
               <CardTitle className="text-sm flex items-center gap-2">
                 <Plus className="h-4 w-4" />
-                Add Virtual Object
+                Tambah Objek Virtual
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -158,7 +158,7 @@ export default function SimulationWindow() {
                 disabled={!newObject.label}
               >
                 <Plus className="h-4 w-4 mr-2" />
-                Add Virtual Object
+                Tambah Objek Virtual
               </Button>
             </CardContent>
           </Card>

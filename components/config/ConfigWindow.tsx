@@ -54,11 +54,11 @@ export default function ConfigWindow() {
         onClick={() => setOpen(true)}
       >
         <Settings className="h-4 w-4" />
-        Configuration
+        Konfigurasi
       </Button>
       
       <DraggableWindow
-        title="System Configuration"
+        title="Konfigurasi Sistem"
         icon={<Settings className="h-5 w-5" />}
         isOpen={open}
         onClose={() => setOpen(false)}
@@ -80,18 +80,18 @@ export default function ConfigWindow() {
             </TabsTrigger>
             <TabsTrigger value="advanced" className="flex items-center gap-2">
               <Sliders className="h-4 w-4" />
-              Advanced
+              Lanjutan
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="detection" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm">Counting Zone</CardTitle>
+                <CardTitle className="text-sm">Zona Penghitungan</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <Label className="text-sm">Zone Start Position: {config.detection.zoneStart}%</Label>
+                  <Label className="text-sm">Posisi Awal Zona: {config.detection.zoneStart}%</Label>
                   <Slider
                     value={[config.detection.zoneStart]}
                     onValueChange={([value]) => updateDetectionConfig({ zoneStart: value })}
@@ -103,7 +103,7 @@ export default function ConfigWindow() {
                 </div>
                 
                 <div>
-                  <Label className="text-sm">Zone Width: {config.detection.zoneWidth}%</Label>
+                  <Label className="text-sm">Lebar Zona: {config.detection.zoneWidth}%</Label>
                   <Slider
                     value={[config.detection.zoneWidth]}
                     onValueChange={([value]) => updateDetectionConfig({ zoneWidth: value })}
@@ -115,7 +115,7 @@ export default function ConfigWindow() {
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <Label>Show Counting Zone</Label>
+                  <Label>Tampilkan Zona Penghitungan</Label>
                   <Switch
                     checked={config.detection.showZone}
                     onCheckedChange={(checked) => updateDetectionConfig({ showZone: checked })}
@@ -126,12 +126,12 @@ export default function ConfigWindow() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm">Detection Settings</CardTitle>
+                <CardTitle className="text-sm">Pengaturan Deteksi</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
                   <Label className="text-sm">
-                    Detection Threshold: {Math.round(config.detection.threshold * 100)}%
+                    Ambang Batas Deteksi: {Math.round(config.detection.threshold * 100)}%
                   </Label>
                   <Slider
                     value={[config.detection.threshold]}
@@ -144,7 +144,7 @@ export default function ConfigWindow() {
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <Label>Auto Counting</Label>
+                  <Label>Penghitungan Otomatis</Label>
                   <Switch
                     checked={config.detection.autoCount}
                     onCheckedChange={(checked) => updateDetectionConfig({ autoCount: checked })}
@@ -157,11 +157,11 @@ export default function ConfigWindow() {
           <TabsContent value="visual" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm">Display Options</CardTitle>
+                <CardTitle className="text-sm">Opsi Tampilan</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <Label>Show Bounding Boxes</Label>
+                  <Label>Tampilkan Kotak Pembatas</Label>
                   <Switch
                     checked={config.visual.showBoxes}
                     onCheckedChange={(checked) => updateVisualConfig({ showBoxes: checked })}
@@ -169,7 +169,7 @@ export default function ConfigWindow() {
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <Label>Show Product Labels</Label>
+                  <Label>Tampilkan Label Produk</Label>
                   <Switch
                     checked={config.visual.showLabels}
                     onCheckedChange={(checked) => updateVisualConfig({ showLabels: checked })}
@@ -177,7 +177,7 @@ export default function ConfigWindow() {
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <Label>Show Confidence Score</Label>
+                  <Label>Tampilkan Skor Kepercayaan</Label>
                   <Switch
                     checked={config.visual.showConfidence}
                     onCheckedChange={(checked) => updateVisualConfig({ showConfidence: checked })}
@@ -188,12 +188,12 @@ export default function ConfigWindow() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm">Colors & Appearance</CardTitle>
+                <CardTitle className="text-sm">Warna & Tampilan</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
                   <Label className="text-sm">
-                    Zone Opacity: {Math.round(config.visual.zoneOpacity * 100)}%
+                    Opacity Zona: {Math.round(config.visual.zoneOpacity * 100)}%
                   </Label>
                   <Slider
                     value={[config.visual.zoneOpacity]}

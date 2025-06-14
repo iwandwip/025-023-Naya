@@ -201,12 +201,20 @@ export function useSocket() {
     socket?.emit('delete_product', { name });
   }, [socket]);
 
+  const deleteAllProducts = useCallback(() => {
+    socket?.emit('delete_all_products');
+  }, [socket]);
+
   const getTransactionHistory = useCallback(() => {
     socket?.emit('get_transaction_history');
   }, [socket]);
 
   const deleteTransaction = useCallback((id: string) => {
     socket?.emit('delete_transaction', { id });
+  }, [socket]);
+
+  const deleteAllTransactions = useCallback(() => {
+    socket?.emit('delete_all_transactions');
   }, [socket]);
 
   const toggleSimulation = useCallback((enabled: boolean) => {
@@ -269,8 +277,10 @@ export function useSocket() {
     addProduct,
     updateProduct,
     deleteProduct,
+    deleteAllProducts,
     getTransactionHistory,
     deleteTransaction,
+    deleteAllTransactions,
     toggleSimulation,
     addSimulatedObject,
     removeSimulatedObject,
