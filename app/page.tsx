@@ -9,6 +9,7 @@ import SimulationWindow from '@/components/simulation/SimulationWindow';
 import ProductModal from '@/components/admin/ProductModal';
 import HistoryModal from '@/components/history/HistoryModal';
 import Notification from '@/components/ui/notification';
+import { ThemeToggle } from '@/components/theme-toggle';
 import { Package } from 'lucide-react';
 
 export default function HomePage() {
@@ -27,29 +28,30 @@ export default function HomePage() {
 
   if (!isClient) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <Package className="h-12 w-12 text-blue-600 mx-auto mb-4 animate-spin" />
-          <p className="text-gray-600">Memuat Sistem Self-Checkout...</p>
+          <Package className="h-12 w-12 text-primary mx-auto mb-4 animate-spin" />
+          <p className="text-muted-foreground">Memuat Sistem Self-Checkout...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm border-b">
+    <div className="min-h-screen bg-background">
+      <header className="bg-card shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center">
-              <Package className="h-8 w-8 text-blue-600 mr-3" />
+              <Package className="h-8 w-8 text-primary mr-3" />
               <div>
-                <h1 className="text-xl font-bold text-gray-900">Sistem Self-Checkout</h1>
-                <p className="text-sm text-gray-500">Deteksi Produk Bertenaga AI</p>
+                <h1 className="text-xl font-bold text-foreground">Sistem Self-Checkout</h1>
+                <p className="text-sm text-muted-foreground">Deteksi Produk Bertenaga AI</p>
               </div>
             </div>
             
             <div className="flex items-center space-x-3">
+              <ThemeToggle />
               <ConfigWindow />
               <HistoryModal />
               <ProductModal />

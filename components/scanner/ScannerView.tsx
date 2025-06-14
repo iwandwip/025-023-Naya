@@ -168,14 +168,14 @@ export default function ScannerView() {
           </Button>
         </div>
 
-        <Card className="bg-orange-50 border-orange-200">
+        <Card className="bg-orange-500/10 border-orange-500/20">
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
                 <Label htmlFor="simulation-mode" className="text-sm font-medium">
                   Mode Simulasi
                 </Label>
-                <p className="text-xs text-gray-600 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   Aktifkan untuk pengujian tanpa input kamera asli
                 </p>
               </div>
@@ -188,7 +188,7 @@ export default function ScannerView() {
           </CardContent>
         </Card>
 
-        <div className="text-center text-sm text-gray-500">
+        <div className="text-center text-sm text-muted-foreground">
           {socket.yoloInitializing ? (
             <p>⏳ Menginisialisasi model YOLO... Mohon tunggu</p>
           ) : !socket.yoloInitialized ? (

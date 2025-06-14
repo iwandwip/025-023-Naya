@@ -32,17 +32,17 @@ export default function VideoPlayer({ isConnected, isScanning, onLoad, onError }
 
   if (!isConnected) {
     return (
-      <div className="relative w-full aspect-[4/3] max-h-[60vh] rounded-lg border bg-gray-200 overflow-hidden flex items-center justify-center">
+      <div className="relative w-full aspect-[4/3] max-h-[60vh] rounded-lg border bg-muted overflow-hidden flex items-center justify-center">
         <div className="text-center">
-          <p className="text-gray-600 text-sm">❌ Server disconnected</p>
-          <p className="text-xs text-gray-500 mt-1">Check backend connection</p>
+          <p className="text-muted-foreground text-sm">❌ Server disconnected</p>
+          <p className="text-xs text-muted-foreground/70 mt-1">Check backend connection</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="relative w-full aspect-[4/3] max-h-[60vh] rounded-lg border bg-gray-100 overflow-hidden">
+    <div className="relative w-full aspect-[4/3] max-h-[60vh] rounded-lg border bg-muted/50 overflow-hidden">
       <iframe
         ref={iframeRef}
         src={streamUrl}
@@ -51,7 +51,7 @@ export default function VideoPlayer({ isConnected, isScanning, onLoad, onError }
           width: '100%',
           height: '100%',
           border: 'none',
-          background: '#f0f0f0',
+          background: 'var(--muted)',
           objectFit: 'contain',
           display: 'block'
         }}

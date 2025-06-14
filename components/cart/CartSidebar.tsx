@@ -44,9 +44,9 @@ export default function CartSidebar() {
         <CardContent className="space-y-4">
           {isEmpty ? (
             <div className="text-center py-8">
-              <Package className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500">Keranjang Anda kosong</p>
-              <p className="text-sm text-gray-400">Mulai pemindaian untuk menambah item</p>
+              <Package className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-muted-foreground">Keranjang Anda kosong</p>
+              <p className="text-sm text-muted-foreground/70">Mulai pemindaian untuk menambah item</p>
             </div>
           ) : (
             <>
@@ -54,13 +54,13 @@ export default function CartSidebar() {
                 {cartItems.map(([productName, details]) => {
                   const subtotal = details.price * details.quantity;
                   return (
-                    <div key={productName} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div key={productName} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                       <div className="flex-1">
                         <p className="font-medium capitalize">{productName}</p>
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-muted-foreground">
                           Rp {details.price.toLocaleString()} × {details.quantity}
                         </p>
-                        <p className="text-sm font-medium text-green-600">
+                        <p className="text-sm font-medium text-primary">
                           Rp {subtotal.toLocaleString()}
                         </p>
                       </div>
@@ -82,7 +82,7 @@ export default function CartSidebar() {
               <div className="space-y-3">
                 <div className="flex justify-between items-center text-lg font-bold">
                   <span>Total:</span>
-                  <span className="text-green-600">Rp {socket.total.toLocaleString()}</span>
+                  <span className="text-primary">Rp {socket.total.toLocaleString()}</span>
                 </div>
 
                 <Button
